@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use bevy::image::DataFormat;
 use bevy::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::time::common_conditions::on_timer;
