@@ -63,9 +63,7 @@ impl<T: StatTrait> Plugin for StatEffectsPlugin<T> {
         app.add_event::<OnRepeatingEffectTriggered<T>>();
         app.add_observer(add_effect::<T>);
         app.add_observer(remove_effect::<T>);
-        app.add_systems(Update, (
-            process_active_effects::<T>,
-        ).in_set(StatEffectsSystemSet));
+        app.add_systems(Update, process_active_effects::<T>.in_set(StatEffectsSystemSet));
         app.insert_resource(self.0.clone());
     }
 }

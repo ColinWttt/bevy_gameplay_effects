@@ -10,6 +10,7 @@ use bevy_stat_effects::{prelude::*, stats, StackingBehaviors};
 // Systems are single-threaded unfortunately
 // This is spawning ~70k effects every half second, plus healing
 // effects on entity death. It probably won't match real game conditions.
+// It's just a stress test
 
 // Unfortunately effect systems are single threaded
 
@@ -118,7 +119,7 @@ fn check_deaths(
     mut commands: Commands,
     mut events: EventReader<OnBoundsBreached<CharacterStats>>,
 ) {
-    let healing_effect = StatEffect::new::<DataFormat>(
+    let healing_effect = StatEffect::new::<HealingEffect>(
         CharacterStats::Health,
         EffectMagnitude::Fixed(100.0),
         EffectCalculation::Additive,
