@@ -164,7 +164,7 @@ pub(crate) fn process_active_effects<T: StatTrait>(
             }
         }
         
-        let mut to_remove: Option<SmallVec::<[usize; 8]>> = None;
+        let mut to_remove = SmallVec::<[usize; 8]>::new();
 
         for (idx, effect) in effects.0.iter().enumerate() {
             match &effect.duration {
@@ -172,7 +172,7 @@ pub(crate) fn process_active_effects<T: StatTrait>(
                     apply_immediate::<T>(entity, &effect, &effects, &mut stats_query, &mut breached_writer, Some(time.delta_secs()));
                     if let Some(timer) = timer {
                         if timer.finished() {
-                            to_remove.get_or_insert_default().push(idx);
+                            to_remove.push(idx);
                             commands.trigger(OnEffectRemoved(EffectTypeMetadata::<T>::new(entity, effect.effect_type)));
                         }
                     }
@@ -184,7 +184,7 @@ pub(crate) fn process_active_effects<T: StatTrait>(
                     }
                     if let Some(timer) = timer {
                         if timer.finished() {
-                            to_remove.get_or_insert_default().push(idx);
+                            to_remove.push(idx);
                             commands.trigger(OnEffectRemoved(EffectTypeMetadata::<T>::new(entity, effect.effect_type)));
                         }
                     }
@@ -198,7 +198,7 @@ pub(crate) fn process_active_effects<T: StatTrait>(
                     }
                     if let Some(timer) = duration {
                         if timer.finished() {
-                            to_remove.get_or_insert_default().push(idx);
+                            to_remove.push(idx);
                             commands.trigger(OnEffectRemoved(EffectTypeMetadata::<T>::new(entity, effect.effect_type)));
                         }
                     }
@@ -206,12 +206,10 @@ pub(crate) fn process_active_effects<T: StatTrait>(
                 _ => (),
             };
         };
-        if let Some(to_remove) = to_remove {
-            for &i in to_remove.iter().rev() {
-                let effect = effects.0.remove(i);
-                if matches!(effect.duration, EffectDuration::Persistent(_)) {
-                    recalculate_stats(entity, effect.stat_target, &effects, &mut breached_writer, &mut stats_query);
-                }
+        for &i in to_remove.iter().rev() {
+            let effect = effects.0.remove(i);
+            if matches!(effect.duration, EffectDuration::Persistent(_)) {
+                recalculate_stats(entity, effect.stat_target, &effects, &mut breached_writer, &mut stats_query);
             }
         }
     });
