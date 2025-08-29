@@ -10,3 +10,4 @@ I think it has a pretty simple API.  Performance seems decent in my stress test.
 - Effects can add, multiply or clamp stat values
 - Persistent, immediate, continuous, or repeating effects with optional durations
 - Stat effect events for syncing gameplay cues, audio, animation, particles, etc.
+- Effect stacking rules
