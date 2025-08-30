@@ -68,10 +68,10 @@ pub(crate) fn apply_immediate<T: StatTrait> (
     effect: &StatEffect<T>, 
     stats_query: &mut Query<&mut GameplayStats<T>>,
     amount: f32,
-    upper_bound: f32,
-    lower_bound: f32,
+    effects:&ActiveEffects<T>,
 ) -> Option<OnBoundsBreached<T>> {
 
+    let (upper_bound, lower_bound) = get_bounds(entity, effect.stat_target, effects, stats_query);
     let mut stats = stats_query.get_mut(entity).expect("Missing GameplayStats component");
     let stat = stats.get_mut(effect.stat_target);
 
@@ -95,15 +95,13 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
     effects: &Mut<ActiveEffects<T>>,
     stat_target: T, 
     stats_query: &mut Query<&mut GameplayStats<T>>,
-    upper_bound: f32,
-    lower_bound: f32
 ) -> Option<OnBoundsBreached<T>> {
     let mut additive: f32 = 0.;
     let mut multiplicative: f32 = 1.;
 
     for effect in effects.0.iter() {
         let source = get_effect_source(effect, entity, stats_query);
-        let amount = get_effect_amount(entity, effect, source);
+        let amount = get_effect_amount(effect, source);
         
         if effect.stat_target == stat_target {
             match effect.calculation {
@@ -114,6 +112,7 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
         }
     }
 
+    let (upper_bound, lower_bound) = get_bounds(entity, stat_target, effects, stats_query);
     let mut stats = stats_query.get_mut(entity)
         .expect("No stats component found");
     let stat = stats.get_mut(stat_target);
@@ -147,7 +146,6 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
 
 /// Get the magnitude of the effect on the stat
 pub(crate) fn get_effect_amount<T:StatTrait>(
-    entity: Entity,
     effect: &StatEffect<T>,
     source: Option<&GameplayStats<T>>,
 )  -> f32 {
@@ -178,4 +176,29 @@ pub(crate) fn get_effect_source<'a, T: StatTrait>(
         EffectMagnitude::LocalStat(..) => return stats_query.get(entity).ok(),
         _ => return None,
     };
+}
+
+pub(crate) fn get_bounds<T: StatTrait>(
+    entity: Entity,
+    stat_target: T,
+    effects: &ActiveEffects<T>,
+    stats_query: &mut Query<&mut GameplayStats<T>>,
+) -> (f32, f32) {
+    let mut ub = f32::MAX;
+    let mut lb = f32::MIN;
+
+    for effect in effects.iter().filter(|x| x.stat_target == stat_target) {
+        let source = get_effect_source(effect, entity, stats_query);
+        let amount = get_effect_amount(effect, source);
+        match effect.calculation {
+            EffectCalculation::LowerBound => {
+                lb = f32::max(lb, amount);
+            },
+            EffectCalculation::UpperBound => {
+                ub = f32::min(ub, amount);
+            },
+            _ => { }
+        }
+    }
+    (ub, lb)
 }

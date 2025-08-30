@@ -1,8 +1,6 @@
 # Bevy Stat Effects
 Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttributes from UE5's GameplayAbilitySystem.
 
-I think it has a pretty simple API.  Performance seems decent in my stress test. 350k entities generating ~70k stat effects every half second at 60fps.
-
 ## Features
 - GameplayStats component to track entity stats
 - ActiveEffects component to modify stats at runtime

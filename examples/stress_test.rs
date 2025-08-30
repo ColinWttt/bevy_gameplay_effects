@@ -14,7 +14,7 @@ use bevy_stat_effects::{prelude::*, stats, StackingBehaviors};
 
 // Unfortunately effect systems are single threaded
 
-const ENTITIES_TO_SPAWN: usize = 350_000;
+const ENTITIES_TO_SPAWN: usize = 150_000;
 
 stats! (
     CharacterStats {
@@ -105,7 +105,6 @@ fn do_some_effects(
 ) {
     // I think in a real game you're unlikely to be spawning new effects every frame
     // so let's do it on every 5th entity
-    let mut n = 0;
     let damage_effect = StatEffect::new::<DamageEffect>(
         CharacterStats::Health,
         EffectMagnitude::Fixed(-10.0),
@@ -114,8 +113,6 @@ fn do_some_effects(
     );
 
     for entity in entities {
-        n += 1;
-        if n % 5 != 0 { continue; }
         // Take some damage
         commands.trigger(AddEffect(EffectMetadata::new(
             entity, damage_effect.clone()

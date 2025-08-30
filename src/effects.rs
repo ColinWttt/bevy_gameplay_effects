@@ -79,33 +79,22 @@ pub(crate) fn add_effect<T: StatTrait>(
     let EffectMetadata::<T> { effect, target_entity} = &event.0;
 
     if let Ok((entity, mut effects)) = active_effects.get_mut(*target_entity) {
-        let mut upper_bounds = [f32::MAX; STAT_LIMIT];
-        let mut lower_bounds = [f32::MIN; STAT_LIMIT];
-        for effect in effects.iter() {
-            if matches!(effect.calculation, EffectCalculation::UpperBound) {
-                let source = get_effect_source(effect, entity, &mut stats_query);
-                let amount = get_effect_amount(entity, effect, source);
-                upper_bounds[effect.stat_target.into() as usize] = amount;
-            } else if matches!(effect.calculation, EffectCalculation::LowerBound) {
-                let source = get_effect_source(effect, entity, &mut stats_query);
-                let amount = get_effect_amount(entity, effect, source);
-                lower_bounds[effect.stat_target.into() as usize] = amount;
-            }
-        }
-
-        let lower_bound = lower_bounds[effect.stat_target.into() as usize];
-        let upper_bound = upper_bounds[effect.stat_target.into() as usize];
         let source = get_effect_source(effect, entity, &mut stats_query);
-        let amount = get_effect_amount(entity, effect, source);
+        let amount = get_effect_amount(effect, source);
             
         match &effect.duration {
 
             EffectDuration::Immediate => {
-                apply_immediate(entity, effect, &mut stats_query, amount, upper_bound, lower_bound);
+                if let Some(e) = apply_immediate(entity, effect,
+                                            &mut stats_query, amount, &effects) {
+                    breached_writer.write(e);
+                }
             },
             EffectDuration::Persistent(_) => {
                 effects.0.push(effect.clone());
-                recalculate_stats(entity, &effects, effect.stat_target, &mut stats_query, upper_bound, lower_bound);
+                if let Some(e) = recalculate_stats(entity, &effects, effect.stat_target, &mut stats_query) {
+                    breached_writer.write(e);
+                }
             },
             _ => {
                 let stacking = stacking_bahaviors.0
@@ -174,26 +163,10 @@ pub(crate) fn remove_effect<T: StatTrait>(
             to_remove.push(index);
         }
     }
-    let mut upper_bounds = [f32::MAX; STAT_LIMIT];
-    let mut lower_bounds = [f32::MIN; STAT_LIMIT];
-    for effect in effects.iter() {
-        if matches!(effect.calculation, EffectCalculation::UpperBound) {
-            let source = get_effect_source(effect, *entity, &mut stats_query);
-            let amount = get_effect_amount(*entity, effect, source);
-            upper_bounds[effect.stat_target.into() as usize] = amount;
-        } else if matches!(effect.calculation, EffectCalculation::LowerBound) {
-            let source = get_effect_source(effect, *entity, &mut stats_query);
-            let amount = get_effect_amount(*entity, effect, source);
-            lower_bounds[effect.stat_target.into() as usize] = amount;
-        }
-    }
 
-    let lower_bound = lower_bounds[effect.stat_target.into() as usize];
-    let upper_bound = upper_bounds[effect.stat_target.into() as usize];
-            
     for &i in to_remove.iter().rev() {
         let effect = effects.0.remove(i);
-        if let Some(e) = recalculate_stats(*entity, &effects, effect.stat_target, &mut stats_query, upper_bound, lower_bound) {
+        if let Some(e) = recalculate_stats(*entity, &effects, effect.stat_target, &mut stats_query) {
             breached_writer.write(e);
         }
         removed_writer.write(OnEffectRemoved(EffectTypeMetadata::new(event.target_entity, effect.effect_type)));
@@ -206,7 +179,7 @@ pub(crate) fn process_active_effects<T: StatTrait>(
     mut entity_effects_query: Query<(Entity, &mut ActiveEffects<T>)>,
     mut periodic_event_writer: EventWriter<OnRepeatingEffectTriggered<T>>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
-    mut commands: Commands,
+    mut removed_writer: EventWriter<OnEffectRemoved<T>>,
 ) {
     entity_effects_query.iter_mut().for_each(|(entity, mut effects)| {
 
@@ -227,32 +200,14 @@ pub(crate) fn process_active_effects<T: StatTrait>(
         
         let mut to_remove = SmallVec::<[usize; 8]>::new();
 
-        // Get upper or lower bounds for each stat
-        let mut upper_bounds = [f32::MAX; STAT_LIMIT];
-        let mut lower_bounds = [f32::MIN; STAT_LIMIT];
-        for effect in effects.iter() {
-            if matches!(effect.calculation, EffectCalculation::UpperBound) {
-                let source = get_effect_source(effect, entity, &mut stats_query);
-                let amount = get_effect_amount(entity, effect, source);
-                upper_bounds[effect.stat_target.into() as usize] = amount;
-            } else if matches!(effect.calculation, EffectCalculation::LowerBound) {
-                let source = get_effect_source(effect, entity, &mut stats_query);
-                let amount = get_effect_amount(entity, effect, source);
-                lower_bounds[effect.stat_target.into() as usize] = amount;
-            }
-        }
-
         // Now apply effects for this frame
         for (idx, effect) in effects.0.iter().enumerate() {
-            let lower_bound = lower_bounds[effect.stat_target.into() as usize];
-            let upper_bound = upper_bounds[effect.stat_target.into() as usize];
-            
             // Get effect magnitude
             let source = get_effect_source(effect, entity, &mut stats_query);
-            if matches!(effect.magnitude, EffectMagnitude::NonlocalStat(..)) { // Source entity gone
+            if matches!(effect.magnitude, EffectMagnitude::NonlocalStat(..)) && source.is_none() { // Source entity gone
                 to_remove.push(idx); 
             }
-            let mut amount = get_effect_amount(entity, effect, source);
+            let mut amount = get_effect_amount(effect, source);
             if matches!(effect.duration, EffectDuration::Continuous(_)) {
                 amount *= time.delta_secs();
                 // TODO check effect saturation so framerate spikes don't cause a huge effect
@@ -279,14 +234,15 @@ pub(crate) fn process_active_effects<T: StatTrait>(
                 _ => { false }
             };
             if apply {
-                if let Some(event) = apply_immediate(entity, effect, &mut stats_query, amount, upper_bound, lower_bound) {
+                if let Some(event) = apply_immediate(entity, effect, &mut stats_query, amount, &effects) {
                     breached_writer.write(event);
                 }
             }
         }
+
         for &i in to_remove.iter().rev() {
             let effect = effects.0.remove(i);
-            commands.trigger(RemoveEffect(EffectMetadata { target_entity: entity, effect: effect }));
+            removed_writer.write(OnEffectRemoved(EffectTypeMetadata::new(entity, effect.effect_type)));
         }
     });
 }
