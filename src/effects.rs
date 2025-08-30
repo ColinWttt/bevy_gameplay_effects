@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use std::any::TypeId;
 use smallvec::SmallVec;
 use crate::{
-    calculation::{apply_immediate, get_effect_amount, get_effect_source, recalculate_stats}, events::EffectTypeMetadata, prelude::*, stats::STAT_LIMIT, timing::SmallTimer, StackingBehaviors
+    prelude::*,
+    calculation::{apply_immediate, get_effect_amount, get_effect_source, recalculate_stats},
+    events::EffectTypeMetadata,
+    timing::SmallTimer, StackingBehaviors
 };
 
 const ACTIVE_EFFECTS_SIZE: usize = 24;
