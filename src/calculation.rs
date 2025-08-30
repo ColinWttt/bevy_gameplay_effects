@@ -22,6 +22,7 @@ pub enum EffectMagnitude<T: StatTrait> {
 pub enum EffectCalculation {
     Additive,
     Multiplicative,
+    SetValue,
     LowerBound,
     UpperBound,
 }
@@ -78,6 +79,7 @@ pub(crate) fn apply_immediate<T: StatTrait> (
     match &effect.calculation {
         EffectCalculation::Additive => { stat.current_value += amount },
         EffectCalculation::Multiplicative => { stat.current_value *= amount },
+        EffectCalculation::SetValue => { stat.current_value = amount },
         _ => { }
     }
     if stat.current_value >= upper_bound {

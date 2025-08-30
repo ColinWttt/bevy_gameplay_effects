@@ -198,6 +198,65 @@ mod tests {
     }
 
     #[test] 
+    fn test_set_value() {
+        let mut app = setup_app();
+        let (entity, mut query) = setup_entity(&mut app);
+
+        struct MaxHealthEffect;
+        struct SetHealth;
+
+        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+            entity, 
+            StatEffect::new::<MaxHealthEffect>(
+                MyStats::Health,
+                EffectMagnitude::LocalStat(MyStats::HealthMax, StatScalingParams::default()),
+                EffectCalculation::UpperBound,
+                EffectDuration::Persistent(None),
+            )
+        )));
+
+        // Try to set past max health
+        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+            entity, 
+            StatEffect::new::<SetHealth>(
+                MyStats::Health,
+                EffectMagnitude::Fixed(200.),
+                EffectCalculation::SetValue,
+                EffectDuration::Immediate,
+            )
+        )));
+        let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
+        let health = stats.get(MyStats::Health).current_value;
+        assert_eq!(health, 100.);
+
+        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+            entity, 
+            StatEffect::new::<SetHealth>(
+                MyStats::Health,
+                EffectMagnitude::Fixed(50.),
+                EffectCalculation::SetValue,
+                EffectDuration::Immediate,
+            )
+        )));
+        let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
+        let health = stats.get(MyStats::Health).current_value;
+        assert_eq!(health, 50.);
+
+        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+            entity, 
+            StatEffect::new::<SetHealth>(
+                MyStats::Health,
+                EffectMagnitude::LocalStat(MyStats::HealthMax, StatScalingParams::default()),
+                EffectCalculation::SetValue,
+                EffectDuration::Immediate,
+            )
+        )));
+        let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
+        let health = stats.get(MyStats::Health).current_value;
+        assert_eq!(health, 100.);
+    }
+
+    #[test] 
     fn test_periodic_effect() {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);
