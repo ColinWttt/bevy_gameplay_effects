@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use bevy::prelude::Component;
 
-const STAT_LIMIT: usize = 16;
+pub(crate) const STAT_LIMIT: usize = 16;
 
 #[derive(Default, Copy, Clone)]
 pub struct GameplayStat {

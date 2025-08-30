@@ -66,67 +66,56 @@ impl StatScalingParams {
 pub(crate) fn apply_immediate<T: StatTrait> (
     entity: Entity,
     effect: &StatEffect<T>, 
-    effects: &ActiveEffects<T>,
     stats_query: &mut Query<&mut GameplayStats<T>>,
-    breached_writer: &mut EventWriter<OnBoundsBreached<T>>,
-    amount_mult: Option<f32>,
-) {
-    let (upper_bound, lower_bound) = get_bounds(effect.stat_target, entity, effects, stats_query);
+    amount: f32,
+    upper_bound: f32,
+    lower_bound: f32,
+) -> Option<OnBoundsBreached<T>> {
 
-    let mut amount = get_effect_amount(entity, effect, stats_query);
-    if let Some(mult) = amount_mult { amount *= mult; }
-
-    let mut stats = stats_query.get_mut(entity).expect("Failed to get stats for entitiy");
+    let mut stats = stats_query.get_mut(entity).expect("Missing GameplayStats component");
     let stat = stats.get_mut(effect.stat_target);
 
     match &effect.calculation {
         EffectCalculation::Additive => { stat.current_value += amount },
         EffectCalculation::Multiplicative => { stat.current_value *= amount },
-        EffectCalculation::LowerBound => { stat.current_value = f32::max(stat.current_value, amount) },
-        EffectCalculation::UpperBound => { stat.current_value = f32::min(stat.current_value, amount) },
+        _ => { }
     }
     if stat.current_value >= upper_bound {
-        breached_writer.write(OnBoundsBreached(
-            BoundsBreachedMetadata::new(entity, effect.stat_target, EffectCalculation::UpperBound))
-        );
         stat.current_value = upper_bound;
-    }
-    if stat.current_value <= lower_bound {
-        breached_writer.write(OnBoundsBreached(
-            BoundsBreachedMetadata::new(entity, effect.stat_target, EffectCalculation::LowerBound))
-        );
+        Some(OnBoundsBreached(BoundsBreachedMetadata::new(entity, effect.stat_target, EffectCalculation::UpperBound)))
+    } else if stat.current_value <= lower_bound {
         stat.current_value = lower_bound;
-    }
+        Some(OnBoundsBreached(BoundsBreachedMetadata::new(entity, effect.stat_target, EffectCalculation::LowerBound)))
+    } else { None }
 }
 
 /// After persistent effects are added/removed recalulate base and current stat values
 pub(crate) fn recalculate_stats<T: StatTrait>(
     entity: Entity,
-    stat_target: T, 
     effects: &Mut<ActiveEffects<T>>,
-    breached_writer: &mut EventWriter<OnBoundsBreached<T>>,
+    stat_target: T, 
     stats_query: &mut Query<&mut GameplayStats<T>>,
-) {
+    upper_bound: f32,
+    lower_bound: f32
+) -> Option<OnBoundsBreached<T>> {
     let mut additive: f32 = 0.;
     let mut multiplicative: f32 = 1.;
-    let mut lower_bound: f32 = f32::MIN;
-    let mut upper_bound: f32 = f32::MAX;
 
     for effect in effects.0.iter() {
-        let amount = get_effect_amount(entity, effect, stats_query);
+        let source = get_effect_source(effect, entity, stats_query);
+        let amount = get_effect_amount(entity, effect, source);
         
         if effect.stat_target == stat_target {
             match effect.calculation {
                 EffectCalculation::Additive => { additive += amount },
                 EffectCalculation::Multiplicative => { multiplicative *= amount },
-                EffectCalculation::LowerBound => { lower_bound = f32::max(lower_bound, amount) },
-                EffectCalculation::UpperBound => { upper_bound = f32::min(upper_bound, amount) },
+                _ => { }
             }
         }
     }
 
     let mut stats = stats_query.get_mut(entity)
-        .expect("Failed to get entity stats");
+        .expect("No stats component found");
     let stat = stats.get_mut(stat_target);
     let prev_base = stat.modified_base;
     let mut new_base = (stat.base_value + additive) * multiplicative;
@@ -136,83 +125,57 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
     stat.current_value *= new_base / prev_base;
 
     if stat.current_value >= upper_bound {
-        breached_writer.write(OnBoundsBreached(
+        stat.current_value = upper_bound;
+        Some(OnBoundsBreached(
             BoundsBreachedMetadata {
                 stat: stat_target,
                 bound: EffectCalculation::UpperBound,
                 target_entity: entity,
             }
-        ));
-        stat.current_value = upper_bound;
-    }
-    if stat.current_value <= lower_bound {
-        breached_writer.write(OnBoundsBreached(
+        ))
+    } else if stat.current_value <= lower_bound {
+        stat.current_value = lower_bound;
+        Some(OnBoundsBreached(
             BoundsBreachedMetadata {
                 stat: stat_target,
                 bound: EffectCalculation::LowerBound,
                 target_entity: entity,
             }
-        ));
-        stat.current_value = lower_bound;
-    }
+        ))
+    } else { None }
 }
 
 /// Get the magnitude of the effect on the stat
 pub(crate) fn get_effect_amount<T:StatTrait>(
     entity: Entity,
     effect: &StatEffect<T>,
-    stats_query: &Query<&mut GameplayStats<T>>,
+    source: Option<&GameplayStats<T>>,
 )  -> f32 {
     match &effect.magnitude {
         EffectMagnitude::Fixed(x) => *x,
         EffectMagnitude::LocalStat(stat, f) => {
-            let stats = stats_query.get(entity)
-                .expect("Failed to get stats");
+            let stats = source.unwrap();
             f.apply(stats.get(*stat).current_value)
         },
-        EffectMagnitude::NonlocalStat(stat, f, source) => {
-            let source_stats = stats_query.get(*source)
-                .expect("Failed to get source entity for stat based effect");
-            f.apply(source_stats.get(*stat).current_value)
+        EffectMagnitude::NonlocalStat(stat, f, _) => {
+            let stats = source.unwrap();
+            f.apply(stats.get(*stat).current_value)
         },
     }
 }
 
-
-/// Get the upper/lower bounds for a given stat with given active effects
-pub(crate) fn get_bounds<T: StatTrait>(
-    stat_variant: T,
-    target_entity: Entity,
-    effects: &ActiveEffects<T>,
-    stats_query: &mut Query<&mut GameplayStats<T>>,
-) -> (f32, f32) {
-    let mut upper_bound = f32::MAX;
-    let mut lower_bound = f32::MIN;
-    for effect in effects.0.iter() {
-        if effect.stat_target != stat_variant { continue; }
-        match effect.calculation {
-            EffectCalculation::LowerBound => {
-                let amount = get_effect_amount(
-                    target_entity,
-                    &effect,
-                    &stats_query
-                );
-                if amount > lower_bound {
-                    lower_bound = amount;
-                }
-            },
-            EffectCalculation::UpperBound => {
-                let amount = get_effect_amount(
-                    target_entity,
-                    &effect,
-                    &stats_query
-                );
-                if amount < upper_bound {
-                    upper_bound = amount;
-                }
-            },
-            _ => { }
-        }
-    }
-    (upper_bound, lower_bound)
+pub(crate) fn get_effect_source<'a, T: StatTrait>(
+    effect: &StatEffect<T>,
+    entity: Entity,
+    stats_query: &'a mut Query<&mut GameplayStats<T>>,
+) -> Option<&'a GameplayStats<T>> {
+    match &effect.magnitude {
+        EffectMagnitude::NonlocalStat(_, _, source_entity) => {
+            if let Ok(stats) = stats_query.get(*source_entity) {
+                return Some(stats)
+            } else { return None; }
+        },
+        EffectMagnitude::LocalStat(..) => return stats_query.get(entity).ok(),
+        _ => return None,
+    };
 }

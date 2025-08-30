@@ -2,11 +2,7 @@ use bevy::prelude::*;
 use std::any::TypeId;
 use smallvec::SmallVec;
 use crate::{
-    prelude::*,
-    calculation::{apply_immediate, recalculate_stats},
-    events::EffectTypeMetadata,
-    timing::SmallTimer,
-    StackingBehaviors
+    calculation::{apply_immediate, get_effect_amount, get_effect_source, recalculate_stats}, events::EffectTypeMetadata, prelude::*, stats::STAT_LIMIT, timing::SmallTimer, StackingBehaviors
 };
 
 const ACTIVE_EFFECTS_SIZE: usize = 24;
@@ -55,7 +51,7 @@ impl<T: StatTrait> StatEffect<T> {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Deref, DerefMut)]
 pub struct ActiveEffects<T: StatTrait>(pub(crate) SmallVec<[StatEffect<T>; ACTIVE_EFFECTS_SIZE]>);
 
 impl<T: StatTrait> ActiveEffects<T> {
@@ -83,13 +79,33 @@ pub(crate) fn add_effect<T: StatTrait>(
     let EffectMetadata::<T> { effect, target_entity} = &event.0;
 
     if let Ok((entity, mut effects)) = active_effects.get_mut(*target_entity) {
+        let mut upper_bounds = [f32::MAX; STAT_LIMIT];
+        let mut lower_bounds = [f32::MIN; STAT_LIMIT];
+        for effect in effects.iter() {
+            if matches!(effect.calculation, EffectCalculation::UpperBound) {
+                let source = get_effect_source(effect, entity, &mut stats_query);
+                let amount = get_effect_amount(entity, effect, source);
+                upper_bounds[effect.stat_target.into() as usize] = amount;
+            } else if matches!(effect.calculation, EffectCalculation::LowerBound) {
+                let source = get_effect_source(effect, entity, &mut stats_query);
+                let amount = get_effect_amount(entity, effect, source);
+                lower_bounds[effect.stat_target.into() as usize] = amount;
+            }
+        }
+
+        let lower_bound = lower_bounds[effect.stat_target.into() as usize];
+        let upper_bound = upper_bounds[effect.stat_target.into() as usize];
+        let source = get_effect_source(effect, entity, &mut stats_query);
+        let amount = get_effect_amount(entity, effect, source);
+            
         match &effect.duration {
+
             EffectDuration::Immediate => {
-                apply_immediate::<T>(entity, &effect, &effects, &mut stats_query, &mut breached_writer, None);
+                apply_immediate(entity, effect, &mut stats_query, amount, upper_bound, lower_bound);
             },
             EffectDuration::Persistent(_) => {
                 effects.0.push(effect.clone());
-                recalculate_stats(entity, effect.stat_target, &effects, &mut breached_writer, &mut stats_query);
+                recalculate_stats(entity, &effects, effect.stat_target, &mut stats_query, upper_bound, lower_bound);
             },
             _ => {
                 let stacking = stacking_bahaviors.0
@@ -141,6 +157,49 @@ pub(crate) fn add_effect<T: StatTrait>(
     }
 }
 
+pub(crate) fn remove_effect<T: StatTrait>(
+    trigger: Trigger<RemoveEffect<T>>,
+    mut breached_writer: EventWriter<OnBoundsBreached<T>>,
+    mut removed_writer: EventWriter<OnEffectRemoved<T>>,
+    mut effects_entities_query: Query<&mut ActiveEffects<T>>,
+    mut stats_query: Query<&mut GameplayStats<T>>,
+) {
+    let event = trigger.event();
+    let EffectMetadata{ effect, target_entity: entity } = &event.0;
+    let mut effects = effects_entities_query.get_mut(*entity)
+        .expect("Failed to get entity");
+    let mut to_remove = SmallVec::<[usize; 8]>::new();
+    for (index, current_effect) in effects.0.iter().enumerate() {
+        if effect.effect_type == current_effect.effect_type {
+            to_remove.push(index);
+        }
+    }
+    let mut upper_bounds = [f32::MAX; STAT_LIMIT];
+    let mut lower_bounds = [f32::MIN; STAT_LIMIT];
+    for effect in effects.iter() {
+        if matches!(effect.calculation, EffectCalculation::UpperBound) {
+            let source = get_effect_source(effect, *entity, &mut stats_query);
+            let amount = get_effect_amount(*entity, effect, source);
+            upper_bounds[effect.stat_target.into() as usize] = amount;
+        } else if matches!(effect.calculation, EffectCalculation::LowerBound) {
+            let source = get_effect_source(effect, *entity, &mut stats_query);
+            let amount = get_effect_amount(*entity, effect, source);
+            lower_bounds[effect.stat_target.into() as usize] = amount;
+        }
+    }
+
+    let lower_bound = lower_bounds[effect.stat_target.into() as usize];
+    let upper_bound = upper_bounds[effect.stat_target.into() as usize];
+            
+    for &i in to_remove.iter().rev() {
+        let effect = effects.0.remove(i);
+        if let Some(e) = recalculate_stats(*entity, &effects, effect.stat_target, &mut stats_query, upper_bound, lower_bound) {
+            breached_writer.write(e);
+        }
+        removed_writer.write(OnEffectRemoved(EffectTypeMetadata::new(event.target_entity, effect.effect_type)));
+    }
+}
+
 pub(crate) fn process_active_effects<T: StatTrait>(
     time: Res<Time>,
     mut stats_query: Query<&mut GameplayStats<T>>,
@@ -150,6 +209,8 @@ pub(crate) fn process_active_effects<T: StatTrait>(
     mut commands: Commands,
 ) {
     entity_effects_query.iter_mut().for_each(|(entity, mut effects)| {
+
+        // Tick all the timers
         for effect in effects.0.iter_mut() {
             match &mut effect.duration {
                 EffectDuration::Continuous(Some(timer)) => { timer.tick(time.delta_secs()); },
@@ -166,74 +227,66 @@ pub(crate) fn process_active_effects<T: StatTrait>(
         
         let mut to_remove = SmallVec::<[usize; 8]>::new();
 
-        for (idx, effect) in effects.0.iter().enumerate() {
-            match &effect.duration {
-                EffectDuration::Continuous(timer) => {
-                    apply_immediate::<T>(entity, &effect, &effects, &mut stats_query, &mut breached_writer, Some(time.delta_secs()));
-                    if let Some(timer) = timer {
-                        if timer.finished() {
-                            to_remove.push(idx);
-                            commands.trigger(OnEffectRemoved(EffectTypeMetadata::<T>::new(entity, effect.effect_type)));
-                        }
-                    }
-                },
-                EffectDuration::Persistent(timer) => {
-                    if matches!(effect.calculation, EffectCalculation::LowerBound) ||
-                            matches!(effect.calculation, EffectCalculation::UpperBound) {
-                        apply_immediate::<T>(entity, &effect, &effects, &mut stats_query, &mut breached_writer, None);
-                    }
-                    if let Some(timer) = timer {
-                        if timer.finished() {
-                            to_remove.push(idx);
-                            commands.trigger(OnEffectRemoved(EffectTypeMetadata::<T>::new(entity, effect.effect_type)));
-                        }
-                    }
-                },
-                EffectDuration::Repeating(period, duration) => {
-                    if period.just_triggered() {
-                        apply_immediate::<T>(entity, &effect, &effects, &mut stats_query, &mut breached_writer, None);
-                        periodic_event_writer.write(OnRepeatingEffectTriggered(
-                            EffectTypeMetadata::new(entity, effect.effect_type)
-                        ));
-                    }
-                    if let Some(timer) = duration {
-                        if timer.finished() {
-                            to_remove.push(idx);
-                            commands.trigger(OnEffectRemoved(EffectTypeMetadata::<T>::new(entity, effect.effect_type)));
-                        }
-                    }
-                },
-                _ => (),
-            };
-        };
-        for &i in to_remove.iter().rev() {
-            let effect = effects.0.remove(i);
-            if matches!(effect.duration, EffectDuration::Persistent(_)) {
-                recalculate_stats(entity, effect.stat_target, &effects, &mut breached_writer, &mut stats_query);
+        // Get upper or lower bounds for each stat
+        let mut upper_bounds = [f32::MAX; STAT_LIMIT];
+        let mut lower_bounds = [f32::MIN; STAT_LIMIT];
+        for effect in effects.iter() {
+            if matches!(effect.calculation, EffectCalculation::UpperBound) {
+                let source = get_effect_source(effect, entity, &mut stats_query);
+                let amount = get_effect_amount(entity, effect, source);
+                upper_bounds[effect.stat_target.into() as usize] = amount;
+            } else if matches!(effect.calculation, EffectCalculation::LowerBound) {
+                let source = get_effect_source(effect, entity, &mut stats_query);
+                let amount = get_effect_amount(entity, effect, source);
+                lower_bounds[effect.stat_target.into() as usize] = amount;
             }
         }
-    });
-}
 
+        // Now apply effects for this frame
+        for (idx, effect) in effects.0.iter().enumerate() {
+            let lower_bound = lower_bounds[effect.stat_target.into() as usize];
+            let upper_bound = upper_bounds[effect.stat_target.into() as usize];
+            
+            // Get effect magnitude
+            let source = get_effect_source(effect, entity, &mut stats_query);
+            if matches!(effect.magnitude, EffectMagnitude::NonlocalStat(..)) { // Source entity gone
+                to_remove.push(idx); 
+            }
+            let mut amount = get_effect_amount(entity, effect, source);
+            if matches!(effect.duration, EffectDuration::Continuous(_)) {
+                amount *= time.delta_secs();
+                // TODO check effect saturation so framerate spikes don't cause a huge effect
+            }
 
-pub(crate) fn remove_effect<T: StatTrait>(
-    trigger: Trigger<RemoveEffect<T>>,
-    mut breached_writer: EventWriter<OnBoundsBreached<T>>,
-    mut effects_entities_query: Query<&mut ActiveEffects<T>>,
-    mut stats_query: Query<&mut GameplayStats<T>>,
-) {
-    let event = trigger.event();
-    let EffectMetadata{ effect, target_entity: entity } = &event.0;
-    let mut effects = effects_entities_query.get_mut(*entity)
-        .expect("Failed to get entity");
-    let mut to_remove = SmallVec::<[usize; 8]>::new();
-    for (index, current_effect) in effects.0.iter().enumerate() {
-        if effect.effect_type == current_effect.effect_type {
-            to_remove.push(index);
+            // Check for expiration timers
+            if let Some(timer) = effect.get_duration_timer() {
+                if timer.finished() {
+                    to_remove.push(idx);
+                }
+            }
+
+            // Persistent and immediate effects are already applied
+            let apply = match effect.duration {
+                EffectDuration::Repeating(period, _) => {
+                    if period.just_triggered() {
+                        periodic_event_writer.write(OnRepeatingEffectTriggered(EffectTypeMetadata::new(
+                            entity, effect.effect_type
+                        )));
+                        true
+                    } else { false }
+                },
+                EffectDuration::Continuous(_) => { true },
+                _ => { false }
+            };
+            if apply {
+                if let Some(event) = apply_immediate(entity, effect, &mut stats_query, amount, upper_bound, lower_bound) {
+                    breached_writer.write(event);
+                }
+            }
         }
-    }
-    for &i in to_remove.iter().rev() {
-        let effect = effects.0.remove(i);
-        recalculate_stats(*entity, effect.stat_target, &effects, &mut breached_writer, &mut stats_query);
-    }
+        for &i in to_remove.iter().rev() {
+            let effect = effects.0.remove(i);
+            commands.trigger(RemoveEffect(EffectMetadata { target_entity: entity, effect: effect }));
+        }
+    });
 }
