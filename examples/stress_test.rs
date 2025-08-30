@@ -100,7 +100,7 @@ fn do_some_effects(
 ) {
     let damage_effect = StatEffect::new::<DamageEffect>(
         CharacterStats::Health,
-        EffectMagnitude::Fixed(-10.0),
+        EffectMagnitude::LocalStat(CharacterStats::Strength, StatScalingParams{multiplier: -1.0, ..default()}),
         EffectCalculation::Additive,
         EffectDuration::Immediate,
     );
