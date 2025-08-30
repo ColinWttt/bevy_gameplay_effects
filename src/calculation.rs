@@ -102,7 +102,7 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
     let mut multiplicative: f32 = 1.;
 
     for effect in effects.0.iter() {
-        let source = get_effect_source(effect, entity, stats_query);
+        let source = get_effect_source_stats(effect, entity, stats_query);
         let amount = get_effect_amount(effect, source);
         
         if effect.stat_target == stat_target {
@@ -164,7 +164,32 @@ pub(crate) fn get_effect_amount<T:StatTrait>(
     }
 }
 
-pub(crate) fn get_effect_source<'a, T: StatTrait>(
+pub(crate) fn get_bounds<T: StatTrait>(
+    entity: Entity,
+    stat_target: T,
+    effects: &ActiveEffects<T>,
+    stats_query: &mut Query<&mut GameplayStats<T>>,
+) -> (f32, f32) {
+    let mut ub = f32::MAX;
+    let mut lb = f32::MIN;
+
+    for effect in effects.iter().filter(|x| x.stat_target == stat_target) {
+        let source = get_effect_source_stats(effect, entity, stats_query);
+        let amount = get_effect_amount(effect, source);
+        match effect.calculation {
+            EffectCalculation::LowerBound => {
+                lb = f32::max(lb, amount);
+            },
+            EffectCalculation::UpperBound => {
+                ub = f32::min(ub, amount);
+            },
+            _ => { }
+        }
+    }
+    (ub, lb)
+}
+
+pub(crate) fn get_effect_source_stats<'a, T: StatTrait>(
     effect: &StatEffect<T>,
     entity: Entity,
     stats_query: &'a mut Query<&mut GameplayStats<T>>,
@@ -178,29 +203,4 @@ pub(crate) fn get_effect_source<'a, T: StatTrait>(
         EffectMagnitude::LocalStat(..) => return stats_query.get(entity).ok(),
         _ => return None,
     };
-}
-
-pub(crate) fn get_bounds<T: StatTrait>(
-    entity: Entity,
-    stat_target: T,
-    effects: &ActiveEffects<T>,
-    stats_query: &mut Query<&mut GameplayStats<T>>,
-) -> (f32, f32) {
-    let mut ub = f32::MAX;
-    let mut lb = f32::MIN;
-
-    for effect in effects.iter().filter(|x| x.stat_target == stat_target) {
-        let source = get_effect_source(effect, entity, stats_query);
-        let amount = get_effect_amount(effect, source);
-        match effect.calculation {
-            EffectCalculation::LowerBound => {
-                lb = f32::max(lb, amount);
-            },
-            EffectCalculation::UpperBound => {
-                ub = f32::min(ub, amount);
-            },
-            _ => { }
-        }
-    }
-    (ub, lb)
 }

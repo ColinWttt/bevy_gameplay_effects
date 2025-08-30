@@ -3,7 +3,7 @@ use std::any::TypeId;
 use smallvec::SmallVec;
 use crate::{
     prelude::*,
-    calculation::{apply_immediate, get_effect_amount, get_effect_source, recalculate_stats},
+    calculation::{apply_immediate, get_effect_amount, get_effect_source_stats, recalculate_stats},
     events::EffectTypeMetadata,
     timing::SmallTimer, StackingBehaviors
 };
@@ -82,7 +82,7 @@ pub(crate) fn add_effect<T: StatTrait>(
     let EffectMetadata::<T> { effect, target_entity} = &event.0;
 
     if let Ok((entity, mut effects)) = active_effects.get_mut(*target_entity) {
-        let source = get_effect_source(effect, entity, &mut stats_query);
+        let source = get_effect_source_stats(effect, entity, &mut stats_query);
         let amount = get_effect_amount(effect, source);
             
         if !matches!(effect.duration, EffectDuration::Immediate) {
@@ -139,12 +139,13 @@ pub(crate) fn add_effect<T: StatTrait>(
             },
             _ => { }
         }
-        added_writer.write(OnEffectAdded(
-            EffectTypeMetadata::new(
-                event.0.target_entity,
-                event.0.effect.effect_type
-            )
-        ));
+
+        let mut metadata = EffectTypeMetadata::new(event.0.target_entity, effect.effect_type);
+        match effect.magnitude {
+            EffectMagnitude::NonlocalStat(_, _, other) => { metadata = metadata.with_source(other); }
+            _ => { }
+        }
+        added_writer.write(OnEffectAdded(metadata));
     }
 }
 
@@ -200,14 +201,14 @@ pub(crate) fn process_active_effects<T: StatTrait>(
             }
         }
         
-        let mut to_remove = SmallVec::<[usize; 8]>::new();
+        let mut removed = SmallVec::<[usize; 8]>::new();
 
         // Now apply effects for this frame
         for (idx, effect) in effects.0.iter().enumerate() {
             // Get effect magnitude
-            let source = get_effect_source(effect, entity, &mut stats_query);
+            let source = get_effect_source_stats(effect, entity, &mut stats_query);
             if matches!(effect.magnitude, EffectMagnitude::NonlocalStat(..)) && source.is_none() { // Source entity gone
-                to_remove.push(idx); 
+                removed.push(idx); 
             }
             let mut amount = get_effect_amount(effect, source);
             if matches!(effect.duration, EffectDuration::Continuous(_)) {
@@ -218,7 +219,7 @@ pub(crate) fn process_active_effects<T: StatTrait>(
             // Check for expiration timers
             if let Some(timer) = effect.get_duration_timer() {
                 if timer.finished() {
-                    to_remove.push(idx);
+                    removed.push(idx);
                 }
             }
 
@@ -242,7 +243,7 @@ pub(crate) fn process_active_effects<T: StatTrait>(
             }
         }
 
-        for &i in to_remove.iter().rev() {
+        for &i in removed.iter().rev() {
             let effect = effects.0.remove(i);
             removed_writer.write(OnEffectRemoved(EffectTypeMetadata::new(entity, effect.effect_type)));
         }

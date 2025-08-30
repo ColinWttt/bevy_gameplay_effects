@@ -16,12 +16,18 @@ impl<T: StatTrait> EffectMetadata<T> {
 
 pub struct EffectTypeMetadata {
     pub target_entity: Entity,
+    pub source_entity: Option<Entity>,
     pub effect_type: TypeId,
 }
 
 impl EffectTypeMetadata {
     pub fn new(entity: Entity, effect_type: TypeId) -> Self {
-        Self { target_entity: entity, effect_type }
+        Self { target_entity: entity, effect_type, source_entity: None }
+    }
+
+    pub fn with_source(mut self, source: Entity) -> Self {
+        self.source_entity = Some(source);
+        self
     }
 }
 
