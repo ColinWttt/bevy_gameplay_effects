@@ -65,9 +65,10 @@ impl StatScalingParams {
 I thought this approach would be cheaper than using some Box\<dyn T\> though it is more limited, but probably flexible enough.
 
 # Stacking
-The StatEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.
+The StatEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.  This is just a hashmap from effect TypeId to a stacking policy
 
-There are several stacking policies supported by StackingPolicy.  Currently stacking is only linear.
+There are several stacking policies supported by StackingPolicy.  Currently stacking is only linear, .i.e. each effect will have the same magnitude.  You can get around this by defining different stats with the same underlying TypeId, but right now I don't have support for dynamic scaling of magnitudes based on the number of stacked effects.
+
 - NoStacking
 - NoStackingResetTimer
 - MultipleEffects(n) <- here n is the max number of effects you can stack
