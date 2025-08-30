@@ -157,9 +157,9 @@ pub(crate) fn remove_effect<T: StatTrait>(
 ) {
     let event = trigger.event();
     let EffectTypeMetadata{ effect_type, target_entity: entity, .. } = &event.0;
-    let mut effects = effects_entities_query.get_mut(*entity)
-        .expect("Failed to get entity");
+    let Ok(mut effects) = effects_entities_query.get_mut(*entity) else { return };
     let mut to_remove = SmallVec::<[usize; 8]>::new();
+
     for (index, current_effect) in effects.0.iter().enumerate() {
         if *effect_type == current_effect.effect_type {
             to_remove.push(index);
