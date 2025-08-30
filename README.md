@@ -73,7 +73,7 @@ There are several stacking policies supported by StackingPolicy.  Currently stac
 - MultipleEffects(n) <- here n is the max number of effects you can stack
 - MultipleEffectsResetTimer(n)
 
-  Basically you can either stack effects (up to n) or not stack at all.  Optionally you can reset all effect timers, e.g. if a character has an OnFire effect and walks into fire again, you may want to reset the timer for this effect.
+Basically you can either stack effects (up to n) or not stack at all.  Optionally you can reset all effect timers, e.g. if a character has an OnFire effect and walks into fire again, you may want to reset the timer for this effect.
 
 # ActiveEffects
 ActiveEffects\<T\> is a component that holds all the effects on an entity.  The entity must also have a GameplayStats\<T\> component.  Internally this is represented as a SmallVec of size 24.  Here you can exceed 24 effects but performance will degrade.
@@ -85,7 +85,7 @@ AddEffect and RemoveEffect are used to manually add and remove effects.  When yo
 ### Feedback Events
 Entities can react to stat effect events by listening to the following
 
-- OnBoundsBreached\<T\>.  This fires whenever a stat reached a limit defined by an upper/lower bound effect. Useful for death or overcharge effects.
+- OnBoundsBreached\<T\>. This fires whenever a stat reached a limit defined by an upper/lower bound effect. Useful for death or overcharge effects.
 - OnRepeatingEffectTriggered
 - OnEffectAdded
 - OnEffectRemoved
