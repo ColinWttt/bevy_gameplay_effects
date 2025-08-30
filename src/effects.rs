@@ -64,8 +64,8 @@ impl<T: StatTrait> ActiveEffects<T> {
         instance
     }
 
-    pub fn match_effect_type(&self, other: TypeId) -> impl Iterator<Item = &StatEffect<T>> {
-        self.0.iter().filter(move |&e| e.effect_type == other)
+    pub fn match_effect_type(&mut self, other: TypeId) -> impl Iterator<Item = &mut StatEffect<T>> {
+        self.0.iter_mut().filter(move |e| e.effect_type == other)
     }
 }
 
@@ -102,7 +102,7 @@ pub(crate) fn add_effect<T: StatTrait>(
                         effects.0.push(effect.clone());
                     } else {
                         if let Some(timer) = effect.get_duration_timer() {
-                            for other in effects.0.iter_mut() {
+                            for other in effects.match_effect_type(effect.effect_type) {
                                 other.set_duration(timer.clone()).ok();
                             }
                         }
@@ -116,7 +116,7 @@ pub(crate) fn add_effect<T: StatTrait>(
                 },
                 StackingPolicy::MultipleEffectsResetDurations(max) => {
                     if let Some(timer) = effect.get_duration_timer() {
-                        for other in effects.0.iter_mut() {
+                        for other in effects.match_effect_type(effect.effect_type) {
                             other.set_duration(timer.clone()).ok();
                         }
                     }
