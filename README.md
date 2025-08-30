@@ -77,7 +77,7 @@ There are a few stacking policies supported.  Currently stacking is only linear,
 Basically you can either stack effects (up to n) or not stack at all.  Optionally you can reset all effect timers, e.g. if a character has an OnFire effect and walks into fire again, you may want to reset the timer for this effect.
 
 # ActiveEffects
-ActiveEffects\<T\> is a component that holds all the effects on an entity.  The entity must also have a GameplayStats\<T\> component.  Internally this is represented as a SmallVec of size 24.  Here you can exceed 24 effects but then you are doing heap allocations so performance will degrade, but likely it's still good enough.
+ActiveEffects\<T\> is a component that holds all the effects on an entity.  The entity must also have a GameplayStats\<T\> component.  Internally this is represented as a SmallVec of size 24.  Here you can exceed 24 effects but then you are doing heap allocations so performance will degrade.
 
 # Events
 ### Triggers
