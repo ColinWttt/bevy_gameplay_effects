@@ -85,60 +85,59 @@ pub(crate) fn add_effect<T: StatTrait>(
         let source = get_effect_source(effect, entity, &mut stats_query);
         let amount = get_effect_amount(effect, source);
             
-        match &effect.duration {
+        if !matches!(effect.duration, EffectDuration::Immediate) {
+            let stacking = stacking_bahaviors.0
+                .get(&effect.effect_type)
+                .cloned()
+                .unwrap_or_default();
 
-            EffectDuration::Immediate => {
-                if let Some(e) = apply_immediate(entity, effect,
-                                            &mut stats_query, amount, &effects) {
-                    breached_writer.write(e);
-                }
-            },
-            EffectDuration::Persistent(_) => {
-                effects.0.push(effect.clone());
-                if let Some(e) = recalculate_stats(entity, &effects, effect.stat_target, &mut stats_query) {
-                    breached_writer.write(e);
-                }
-            },
-            _ => {
-                let stacking = stacking_bahaviors.0
-                    .get(&effect.effect_type)
-                    .cloned()
-                    .unwrap_or_default();
-
-                match stacking {
-                    StackingPolicy::NoStacking => {
-                        if effects.match_effect_type(effect.effect_type).count() == 0 {
-                            effects.0.push(effect.clone());
-                        }
-                        return;
-                    },
-                    StackingPolicy::NoStackingResetDuration => {
-                        if effects.match_effect_type(effect.effect_type).count() == 0 {
-                            effects.0.push(effect.clone());
-                        } else if let Some(timer) = effect.get_duration_timer() {
+            match stacking {
+                StackingPolicy::NoStacking => {
+                    if effects.match_effect_type(effect.effect_type).count() == 0 {
+                        effects.0.push(effect.clone());
+                    } else { return; }
+                },
+                StackingPolicy::NoStackingResetDuration => {
+                    if effects.match_effect_type(effect.effect_type).count() == 0 {
+                        effects.0.push(effect.clone());
+                    } else {
+                        if let Some(timer) = effect.get_duration_timer() {
                             for other in effects.0.iter_mut() {
                                 other.set_duration(timer.clone()).ok();
                             }
                         }
                         return;
                     }
-                    StackingPolicy::MultipleEffects(max) => {
-                        if effects.match_effect_type(effect.effect_type).count() < max as usize {
-                            effects.0.push(effect.clone());
-                        }
-                    },
-                    StackingPolicy::MultipleEffectsResetDurations(max) => {
-                        if effects.match_effect_type(effect.effect_type).count() < max as usize {
-                            effects.0.push(effect.clone());
-                        }
-                        if let Some(timer) = effect.get_duration_timer() {
-                            for other in effects.0.iter_mut() {
-                                other.set_duration(timer.clone()).ok();
-                            }
-                        }
-                    },
                 }
+                StackingPolicy::MultipleEffects(max) => {
+                    if effects.match_effect_type(effect.effect_type).count() < max as usize {
+                        effects.0.push(effect.clone());
+                    } else { return; }
+                },
+                StackingPolicy::MultipleEffectsResetDurations(max) => {
+                    if let Some(timer) = effect.get_duration_timer() {
+                        for other in effects.0.iter_mut() {
+                            other.set_duration(timer.clone()).ok();
+                        }
+                    }
+                    if effects.match_effect_type(effect.effect_type).count() < max as usize {
+                        effects.0.push(effect.clone());
+                    } else { return; }
+                },
             }
+        }
+        match &effect.duration {
+            EffectDuration::Immediate => {
+                if let Some(e) = apply_immediate(entity, effect, &mut stats_query, amount, &effects) {
+                    breached_writer.write(e);
+                }
+            },
+            EffectDuration::Persistent(_) => {
+                if let Some(e) = recalculate_stats(entity, &effects, effect.stat_target, &mut stats_query) {
+                    breached_writer.write(e);
+                }
+            },
+            _ => { }
         }
         added_writer.write(OnEffectAdded(
             EffectTypeMetadata::new(
