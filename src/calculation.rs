@@ -52,7 +52,11 @@ impl Default for StatScalingParams {
 
 impl StatScalingParams {
     pub(crate) fn apply(&self, stat: f32) -> f32 {
-        let mut out = self.shift + self.multiplier * (stat - self.stat_offset).powf(self.exponent);
+        let mut out = stat - self.stat_offset;
+        if self.exponent != 1.0 {
+            out = out.powf(self.exponent);
+        }
+        out = self.shift + self.multiplier * out;
         if let Some(min) = self.min {
             out = f32::max(min, out);
         }
