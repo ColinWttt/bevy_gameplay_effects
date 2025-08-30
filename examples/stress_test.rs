@@ -6,13 +6,8 @@ use bevy::time::common_conditions::on_timer;
 use bevy::window::PresentMode;
 use bevy_stat_effects::{prelude::*, stats, StackingBehaviors};
 
-// I was able to get 350k entities processing at 60fps.  YMMV
-// Systems are single-threaded unfortunately
-// This is spawning ~70k effects every half second, plus healing
-// effects on entity death. It probably won't match real game conditions.
-// It's just a stress test
-
-// Unfortunately effect systems are single threaded
+// Unfortunately effect systems are single threaded due to borrow issues
+// but performance is still good.
 
 const ENTITIES_TO_SPAWN: usize = 150_000;
 
@@ -103,8 +98,6 @@ fn do_some_effects(
     mut commands: Commands,
     entities: Query<Entity, With<ActiveEffects<CharacterStats>>>,
 ) {
-    // I think in a real game you're unlikely to be spawning new effects every frame
-    // so let's do it on every 5th entity
     let damage_effect = StatEffect::new::<DamageEffect>(
         CharacterStats::Health,
         EffectMagnitude::Fixed(-10.0),
@@ -124,6 +117,12 @@ fn check_deaths(
     mut commands: Commands,
     mut events: EventReader<OnBoundsBreached<CharacterStats>>,
 ) {
+    // Since all entities are receiving the same damage each frame they will all die
+    // and fire these events at the same time.  This causes a big fps drop, down to 60 fps for me.
+    // This is not a realistic in-game condition, but it shows that it can handle a good amount
+    // of entities.
+
+    // This will give 100 Health/s for 5 seconds
     let healing_effect = StatEffect::new::<HealingEffect>(
         CharacterStats::Health,
         EffectMagnitude::Fixed(100.0),
@@ -133,7 +132,7 @@ fn check_deaths(
     for event in events.read() {
         if event.0.stat == CharacterStats::Health && event.0.bound == EffectCalculation::LowerBound {
             // Oh no entity died, let's heal him!
-            commands.trigger(AddEffect(EffectMetadata::new(event.0.target_entity, healing_effect.clone())));
+            commands.trigger(AddEffect(EffectMetadata::new(event.target_entity, healing_effect.clone())));
         }
     }
 }
