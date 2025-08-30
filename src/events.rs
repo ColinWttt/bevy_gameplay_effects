@@ -14,15 +14,14 @@ impl<T: StatTrait> EffectMetadata<T> {
     }
 }
 
-pub struct EffectTypeMetadata<T: StatTrait> {
+pub struct EffectTypeMetadata {
     pub target_entity: Entity,
     pub effect_type: TypeId,
-    _stats: PhantomData<T>,
 }
 
-impl<T: StatTrait> EffectTypeMetadata<T> {
+impl EffectTypeMetadata {
     pub fn new(entity: Entity, effect_type: TypeId) -> Self {
-        Self { target_entity: entity, effect_type, _stats: PhantomData }
+        Self { target_entity: entity, effect_type }
     }
 }
 
@@ -42,16 +41,16 @@ impl<T: StatTrait> BoundsBreachedMetadata<T> {
 pub struct AddEffect<T: StatTrait>(pub EffectMetadata<T>);
 
 #[derive(Event, Deref)]
-pub struct RemoveEffect<T: StatTrait>(pub EffectMetadata<T>);
+pub struct RemoveEffect(pub EffectTypeMetadata);
 
 #[derive(Event, Deref)]
-pub struct OnEffectAdded<T: StatTrait>(pub EffectTypeMetadata<T>);
+pub struct OnEffectAdded(pub EffectTypeMetadata);
 
 #[derive(Event, Deref)]
-pub struct OnEffectRemoved<T: StatTrait>(pub EffectTypeMetadata<T>);
+pub struct OnEffectRemoved(pub EffectTypeMetadata);
 
 #[derive(Event, Deref)]
-pub struct OnRepeatingEffectTriggered<T: StatTrait>(pub EffectTypeMetadata<T>);
+pub struct OnRepeatingEffectTriggered(pub EffectTypeMetadata);
 
 #[derive(Event, Deref)]
 pub struct OnBoundsBreached<T: StatTrait>(pub BoundsBreachedMetadata<T>);

@@ -18,8 +18,8 @@ pub mod prelude {
         effects::{StatEffect, ActiveEffects},
         timing::EffectDuration,
         calculation::{EffectCalculation, StackingPolicy, EffectMagnitude, StatScalingParams},
-        events::{EffectMetadata, AddEffect, RemoveEffect, OnEffectAdded, OnEffectRemoved,
-            OnBoundsBreached, OnRepeatingEffectTriggered, BoundsBreachedMetadata},
+        events::{EffectMetadata, EffectTypeMetadata, AddEffect, RemoveEffect, OnEffectAdded,
+            OnEffectRemoved, OnBoundsBreached, OnRepeatingEffectTriggered, BoundsBreachedMetadata},
     };
 }
 
@@ -57,10 +57,10 @@ pub struct StatEffectsSystemSet;
 
 impl<T: StatTrait> Plugin for StatEffectsPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_event::<OnEffectAdded<T>>();
-        app.add_event::<OnEffectRemoved<T>>();
+        app.add_event::<OnEffectAdded>();
+        app.add_event::<OnEffectRemoved>();
+        app.add_event::<OnRepeatingEffectTriggered>();
         app.add_event::<OnBoundsBreached<T>>();
-        app.add_event::<OnRepeatingEffectTriggered<T>>();
         app.add_observer(add_effect::<T>);
         app.add_observer(remove_effect::<T>);
         app.add_systems(Update, process_active_effects::<T>.in_set(StatEffectsSystemSet));
@@ -285,13 +285,13 @@ mod tests {
             let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
             let health = stats.get(MyStats::Health).current_value;
             assert_eq!(health, 100. + (10. * i as f32));
-            let events = app.world_mut().resource_mut::<Events<OnRepeatingEffectTriggered<MyStats>>>();
+            let events = app.world_mut().resource_mut::<Events<OnRepeatingEffectTriggered>>();
             let mut cursor = events.get_cursor();
             let events = cursor.read(&events);
             assert!(events.len() >= 1);
         }
 
-        let events = app.world_mut().resource_mut::<Events<OnRepeatingEffectTriggered<MyStats>>>();
+        let events = app.world_mut().resource_mut::<Events<OnRepeatingEffectTriggered>>();
         let mut cursor = events.get_cursor();
         let event = cursor.read(&events).next().unwrap();
         assert_eq!(event.target_entity, entity);
@@ -392,12 +392,12 @@ mod tests {
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 300.);
         
-        app.world_mut().trigger(RemoveEffect(EffectMetadata::new(entity, buff1)));
+        app.world_mut().trigger(RemoveEffect(EffectTypeMetadata::new(entity, buff1.effect_type)));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 150.);
 
-        app.world_mut().trigger(RemoveEffect(EffectMetadata::new(entity, buff2)));
+        app.world_mut().trigger(RemoveEffect(EffectTypeMetadata::new(entity, buff2.effect_type)));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 75.);

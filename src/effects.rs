@@ -74,7 +74,7 @@ pub(crate) fn add_effect<T: StatTrait>(
     trigger: Trigger<AddEffect<T>>,
     mut stats_query: Query<&mut GameplayStats<T>>,
     mut active_effects: Query<(Entity, &mut ActiveEffects<T>)>,
-    mut added_writer: EventWriter<OnEffectAdded<T>>,
+    mut added_writer: EventWriter<OnEffectAdded>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
     stacking_bahaviors: Res<StackingBehaviors>,
 ) {
@@ -150,19 +150,19 @@ pub(crate) fn add_effect<T: StatTrait>(
 }
 
 pub(crate) fn remove_effect<T: StatTrait>(
-    trigger: Trigger<RemoveEffect<T>>,
+    trigger: Trigger<RemoveEffect>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
-    mut removed_writer: EventWriter<OnEffectRemoved<T>>,
+    mut removed_writer: EventWriter<OnEffectRemoved>,
     mut effects_entities_query: Query<&mut ActiveEffects<T>>,
     mut stats_query: Query<&mut GameplayStats<T>>,
 ) {
     let event = trigger.event();
-    let EffectMetadata{ effect, target_entity: entity } = &event.0;
+    let EffectTypeMetadata{ effect_type, target_entity: entity, .. } = &event.0;
     let mut effects = effects_entities_query.get_mut(*entity)
         .expect("Failed to get entity");
     let mut to_remove = SmallVec::<[usize; 8]>::new();
     for (index, current_effect) in effects.0.iter().enumerate() {
-        if effect.effect_type == current_effect.effect_type {
+        if *effect_type == current_effect.effect_type {
             to_remove.push(index);
         }
     }
@@ -180,9 +180,9 @@ pub(crate) fn process_active_effects<T: StatTrait>(
     time: Res<Time>,
     mut stats_query: Query<&mut GameplayStats<T>>,
     mut entity_effects_query: Query<(Entity, &mut ActiveEffects<T>)>,
-    mut periodic_event_writer: EventWriter<OnRepeatingEffectTriggered<T>>,
+    mut periodic_event_writer: EventWriter<OnRepeatingEffectTriggered>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
-    mut removed_writer: EventWriter<OnEffectRemoved<T>>,
+    mut removed_writer: EventWriter<OnEffectRemoved>,
 ) {
     entity_effects_query.iter_mut().for_each(|(entity, mut effects)| {
 
