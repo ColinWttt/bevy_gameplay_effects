@@ -42,8 +42,8 @@ Stat effects have several different calculation modes which alter the stats in d
 ## EffectMagnitude
 Stat effects can have static or dynamic magnitudes
 - Fixed(f32)
-- LocalStat(T, f32) depends on a stat on the same entity, e.g. drive a health regeneration effect based on a HealthRegen stat type
-- NonLocalStat(T, f32, Entity) depends on a stat on another entity, e.g. do damage according to the source's strength stat.
+- LocalStat(T, StatScalingParams) depends on a stat on the same entity, e.g. drive a health regeneration effect based on a HealthRegen stat type
+- NonLocalStat(T, StatScalingParams, Entity) depends on a stat on another entity, e.g. do damage according to the source's strength stat.
   
 For an effect that depends on other stats, you could also pre-calculate a Fixed amount.  The difference with the last two magnitude variants is that they are dynamic.  For example, an entity is doing continuous damage to another entity over 10 seconds.  Halfway through it levels up and it's damage stat increaes.  The same effect is now doing more damage for the remainder of the effect without any intervention on your part.  This does come at a cost though.  NonLocalStats are the reason I cannot do multithreading in the effect system because of the borrow rules with queries.  If the entity inside a NonLocalStat ceases to exist, the effect is removed.
 ### StatScalingParams
