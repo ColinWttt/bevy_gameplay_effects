@@ -47,7 +47,7 @@ Stat effects can have static or dynamic magnitudes
   
 For an effect that depends on other stats, you could also pre-calculate a Fixed amount.  The difference with the last two magnitude variants is that they are dynamic.  For example, an entity is doing continuous damage to another entity over 10 seconds.  Halfway through it levels up and its damage stat increaes.  The same effect is now doing more damage for the remainder of the effect without any intervention on your part.  This does come at a cost though.  NonLocalStats are the reason I cannot do multithreading in the effect system because of the borrow rules with queries.  If the entity inside a NonLocalStat ceases to exist, the effect is removed.
 ### StatScalingParams
-When doing stat based effect scaling, you may not want to scale your effect magnitude with the underlying stat directly. StatScalingParams is a simple struct with an apply() method, which can transform the stat into a magnitude.  It is defined like this
+When doing stat based effect scaling, you can use StatScalingParams::default() to drive the effect magnitude as precisely the stat value. However you may want to scale your effect magnitude as some function of the underlying stat instead. StatScalingParams is a simple struct with an apply() method, which can transform the stat into a magnitude.  It is defined like this
 ```
 impl StatScalingParams {
     pub(crate) fn apply(&self, stat: f32) -> f32 {
