@@ -2,19 +2,19 @@ use std::{any::TypeId, marker::PhantomData};
 use bevy::{platform::collections::HashMap, prelude::*};
 use crate::{effects::{add_effect, process_active_effects, remove_effect}, prelude::*};
 
-mod stats;
+mod gameplay_stats;
 mod effects;
 mod timing;
 mod calculation;
 mod events;
-#[macro_use]
 mod enum_macro;
 
 pub mod prelude {
     pub use crate::{
+        stats,
         StatEffectsPlugin,
         StatEffectsSystemSet,
-        stats::{GameplayStat, GameplayStats, StatTrait},
+        gameplay_stats::{GameplayStat, GameplayStats, StatTrait},
         effects::{StatEffect, ActiveEffects},
         timing::EffectDuration,
         calculation::{EffectCalculation, StackingPolicy, EffectMagnitude, StatScalingParams},
