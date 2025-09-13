@@ -72,6 +72,10 @@ impl<T: StatTrait> GameplayEffect<T> {
 pub struct ActiveTags(TagList<ACTIVE_TAGS_SIZE>);
 
 impl ActiveTags {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn add(&mut self, tag: TagId) {
         if !self.iter().any(|&t| t == tag) {
             self.push(tag);
