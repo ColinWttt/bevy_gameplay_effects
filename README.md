@@ -8,7 +8,7 @@ Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttrib
 - Dynamic stat magnitude based on other stats, possibly on other entities
 - Effects can set, add, multiply or clamp stat values, or just add a tag to the active tags
 - Persistent, immediate, continuous, or repeating effects with optional durations
-- Stat effect events for syncing gameplay cues, audio, animation, particles, etc.
+- Gameplay effect events for syncing gameplay cues, audio, animation, particles, etc.
 - Effect stacking rules
 
 
