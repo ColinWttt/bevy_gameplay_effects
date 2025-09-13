@@ -1,5 +1,5 @@
 [package]
-name = "bevy_stat_effects"
+name = "bevy_gameplay_effects"
 version = "0.1.0"
 edition = "2024"
 
