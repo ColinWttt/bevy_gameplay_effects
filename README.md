@@ -1,4 +1,4 @@
-# Bevy Stat Effects
+# Bevy Gameplay Effects
 Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttributes from UE5's GameplayAbilitySystem.  Now requires my [bevy_hierarchical_tags](https://github.com/emberlightstudios/bevy_hierarchical_tags) crate.  This change has introduced a lot of breaking changes.  Sorry about that, but it was necessary to allow pure tag effects, which should be pretty common.
 
 ## Features
@@ -8,7 +8,7 @@ Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttrib
 - Dynamic stat magnitude based on other stats, possibly on other entities
 - Effects can set, add, multiply or clamp stat values, or just add a tag to the active tags
 - Persistent, immediate, continuous, or repeating effects with optional durations
-- Stat effect events for syncing gameplay cues, audio, animation, particles, etc.
+- Gameplay effect events for syncing gameplay cues, audio, animation, particles, etc.
 - Effect stacking rules
 
 
@@ -23,10 +23,10 @@ Due to a limitation in rust, the compiler cannot iterate over enum variants, so 
 
 The value u8::MAX is special.  It is automatically defined by the stats! macro as a None variant.  Any effects using it will not try to modify any stats.  It is intended to be used with tag only effects which do not modify stats, e.g. a Stunned effect. It should not go in the variants array.
 
-The StatEffectsPlugin is generic over your stats enum, so you could have more than 1 if desired for some reason.  It also takes in a StackingBehavior resource.  See below.
+The GameplayEffectsPlugin is generic over your stats enum, so you could have more than 1 if desired for some reason.  It also takes in a StackingBehavior resource.  See below.
 
-# StatEffects
-StatEffect\<YourStatEnum\> is a struct that carries data related to how the effect should change your stat.  It holds a duration, a magnitude, a calculation, a stat target, and an Option<TagId>.  The stat_target is just the stat enum variant that the effect is targeting.  TagIds are tracked in the ActiveTags component, and are used for manually removing a stat by tag.  If you need to target multiple stats, use multiple effects.
+# GameplayEffects
+GameplayEffect\<YourStatEnum\> is a struct that carries data related to how the effect should change your stat.  It holds a duration, a magnitude, a calculation, a stat target, and an Option<TagId>.  The stat_target is just the stat enum variant that the effect is targeting.  TagIds are tracked in the ActiveTags component, and are used for manually removing a stat by tag.  If you need to target multiple stats, use multiple effects.
 
 ## EffectDurations
 - Immediate effects are applied and then discarded, useful for things like taking damage or restoring health with a potion.
@@ -72,7 +72,7 @@ impl StatScalingParams {
 I thought this approach would be cheaper than using some Box\<dyn T\> though it is more limited, but probably flexible enough.
 
 # Stacking
-The StatEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.  This is just a hashmap from effect TypeId to a StackingPolicy.
+The GameplayEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.  This is just a hashmap from effect TypeId to a StackingPolicy.
 
 There are a few stacking policies supported.  Currently stacking is only linear, i.e. each effect will have the same magnitude.  You could get around this by defining different stats with the same underlying TypeId, but right now I don't have support for dynamic scaling of magnitudes based on the number of stacked effects.
 
