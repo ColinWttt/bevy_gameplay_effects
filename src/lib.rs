@@ -378,6 +378,30 @@ mod tests {
     }
 
     #[test] 
+    fn test_persistent_with_duration() {
+        let mut app = setup_app();
+        let (entity, mut query) = setup_entity(&mut app);
+
+        let buff = GameplayEffect::new(
+            None,
+            MyStats::Health,
+            EffectMagnitude::Fixed(2.),
+            EffectCalculation::Multiplicative,
+            EffectDuration::Persistent(Some(5.0.into())),
+        );
+        app.world_mut().trigger(AddEffect(AddEffectData::new(entity, buff.clone(), None)));
+        let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
+        let health = stats.get(MyStats::Health).current_value;
+        assert_eq!(health, 200.);
+
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(5));
+        app.update();
+        let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
+        let health = stats.get(MyStats::Health).current_value;
+        assert_eq!(health, 100.);
+    }
+
+    #[test] 
     fn test_persistent_removal() {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);

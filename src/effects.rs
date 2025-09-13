@@ -289,6 +289,11 @@ pub(crate) fn process_active_effects<T: StatTrait>(
 
         for &i in removed.iter().rev() {
             let effect = effects.0.remove(i);
+            if matches!(effect.duration, EffectDuration::Persistent(_)) {
+                if let Some(e) = recalculate_stats(entity, &effects, effect.stat_target, &mut stats_query) {
+                    breached_writer.write(e);
+                }
+            }
             if let Some(tag) = effect.tag {
                 tags.remove(tag);
             }
