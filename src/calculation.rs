@@ -77,7 +77,7 @@ pub(crate) fn apply_immediate<T: StatTrait> (
     amount: f32,
     effects:&ActiveEffects<T>,
 ) -> Option<OnBoundsBreached<T>> {
-    if u8::from(effect.stat_target) == u8::MAX { return }
+    if effect.stat_target.into() == u8::MAX { return None }
     let (upper_bound, lower_bound) = get_bounds(entity, effect.stat_target, effects, stats_query);
     let mut stats = stats_query.get_mut(entity).expect("Missing GameplayStats component");
     let stat = stats.get_mut(effect.stat_target);
@@ -104,8 +104,8 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
     stat_target: T, 
     stats_query: &mut Query<&mut GameplayStats<T>>,
 ) -> Option<OnBoundsBreached<T>> {
-    if u8::from(stat_target) == u8::MAX {
-        return;
+    if stat_target.into() == u8::MAX {
+        return None;
     }
     let mut additive: f32 = 0.;
     let mut multiplicative: f32 = 1.;
@@ -208,9 +208,9 @@ pub(crate) fn get_effect_source_stats<'a, T: StatTrait>(
         EffectMagnitude::NonlocalStat(_, _, source_entity) => {
             if let Ok(stats) = stats_query.get(*source_entity) {
                 return Some(stats)
-            } else { return; }
+            } else { return None; }
         },
         EffectMagnitude::LocalStat(..) => return stats_query.get(entity).ok(),
-        _ => return,
+        _ => return None,
     };
 }
