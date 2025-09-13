@@ -37,7 +37,7 @@ StatEffect\<YourStatEnum\> is a struct that carries data related to how the effe
 Bevy timers are rather large, so I wrote a custom SmallTimer type.  But it impl From\<f32\> so you can just do 10.0.into()
   
 ## EffectCalculation
-Stat effects have several different calculation modes which alter the stats in different ways
+Gameplay effects have several different calculation modes which alter the stats in different ways
 - Additive (10 means add 10 to the current stat value)
 - Multiplicative (1.1 means add 10% to the current stat value)
 - LowerBound (prevent the stat from going below a minimum value)
@@ -46,7 +46,7 @@ Stat effects have several different calculation modes which alter the stats in d
 - None (used for tag-only effects)
 
 ## EffectMagnitude
-Stat effects can have static or dynamic magnitudes
+Gameplay effects can have static or dynamic magnitudes
 - Fixed(f32)
 - LocalStat(T, StatScalingParams) depends on a stat on the same entity, e.g. drive a health regeneration effect based on a HealthRegen stat type
 - NonLocalStat(T, StatScalingParams, Entity) depends on a stat on another entity, e.g. do damage according to the source's strength stat.
@@ -91,7 +91,7 @@ ActiveEffects\<T\> is a component that holds all the effects on an entity.  The 
 AddEffect and RemoveEffect are used to manually add and remove effects.  When you use RemoveEffect, all effects matching the supplied tag will be removed.
 
 ### Feedback Events
-Systems can react to stat effect events by listening to the following
+Systems can react to effect events by listening to the following
 
 - OnBoundsBreached\<T\>. This fires whenever a stat reached a limit defined by an upper/lower bound effect. Useful for death or overcharge effects.
 - OnRepeatingEffectTriggered
