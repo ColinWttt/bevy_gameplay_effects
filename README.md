@@ -1,11 +1,12 @@
 # Bevy Stat Effects
-Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttributes from UE5's GameplayAbilitySystem.
+Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttributes from UE5's GameplayAbilitySystem.  Requires my bevy_hierarchical_tags crate.
 
 ## Features
 - GameplayStats component to track entity stats
-- ActiveEffects component to modify stats at runtime
+- ActiveEffects component to track active effects
+- ActiveTags component to track entity state
 - Dynamic stat magnitude based on other stats, possibly on other entities
-- Effects can set, add, multiply or clamp stat values
+- Effects can set, add, multiply or clamp stat values, or just add a tag to the active tags
 - Persistent, immediate, continuous, or repeating effects with optional durations
 - Stat effect events for syncing gameplay cues, audio, animation, particles, etc.
 - Effect stacking rules
@@ -16,12 +17,16 @@ Stats are represented as f32. GameplayStat is a struct that wraps a few f32, inc
 
 Stat types are represented as user-defined enums.  Use the stats! macro to define them (see examples).  This will impl some traits Into\<u8\>.
 
-GameplayStats\<T\> is a component that holds a [GameplayStat; 16], where T is your stat enum type.  It is currently fixed size and not extendable, so it will always have the same size no matter how many stats you actually use.  The goal was to keep things as cache friendly as possible for iteration.  When you call GameplayStats::\<YourStatEnum\>::new you feed in an initializer function to set the initial stat values.  Due to a limitation in rust, the compiler cannot iterate over enum variants, so you must supply an iterator over your enum.  Internally enum variants are cast to u8 to access the underlying array.  Because of this, You should always set the variants in the order they are defined in your enum, with none missing, except possibly truncation at the end.
+GameplayStats\<T\> is a component that holds a [GameplayStat; 16], where T is your stat enum type.  It is currently fixed size and not extendable, so it will always have the same size no matter how many stats you actually use.  The goal was to keep things as cache friendly as possible for iteration.  When you call GameplayStats::\<YourStatEnum\>::new you feed in an initializer function to set the initial stat values.  
+
+Due to a limitation in rust, the compiler cannot iterate over enum variants, so you must supply an iterator over your enum.  Internally enum variants are cast to u8 to access the underlying array as array indices.  Because of this, You should always set the variants in the correct order (0, 1, 2...), with none missing, except possibly truncation at the end.  
+
+The value u8::MAX is special.  Any effects using it will not try to modify any stats.  It is intended to be used with tag only effects which do not modify stats, e.g. a Stunned effect. It should not go in the variants array,  but you can still define it's variant in your enum, e.g. MyStats::None = 255.
 
 The StatEffectsPlugin is generic over your stats enum, so you could have more than 1 if desired for some reason.  It also takes in a StackingBehavior resource.  See below.
 
 # StatEffects
-StatEffect\<YourStatEnum\> is a struct that carries data related to how the effect should change your stat.  It holds a duration, a magnitude, a calculation, a stat target, and a TypeId (used for identifying or removing a stat by type).  The stat_target is just the stat enum variant that the effect is targeting.  If you need to target multiple stats, use multiple effects.
+StatEffect\<YourStatEnum\> is a struct that carries data related to how the effect should change your stat.  It holds a duration, a magnitude, a calculation, a stat target, and an Option<TagId>.  The stat_target is just the stat enum variant that the effect is targeting.  TagIds are tracked in the ActiveTags component, and are used for manually removing a stat by tag.  If you need to target multiple stats, use multiple effects.
 
 ## EffectDurations
 - Immediate effects are applied and then discarded, useful for things like taking damage or restoring health with a potion.
@@ -38,12 +43,14 @@ Stat effects have several different calculation modes which alter the stats in d
 - LowerBound (prevent the stat from going below a minimum value)
 - UpperBound (prevent the stat from going above a maximum value)
 - SetValue (sets the value of the stat directly, still constrained by any bounds in place)
+- None (used for tag-only effects)
 
 ## EffectMagnitude
 Stat effects can have static or dynamic magnitudes
 - Fixed(f32)
 - LocalStat(T, StatScalingParams) depends on a stat on the same entity, e.g. drive a health regeneration effect based on a HealthRegen stat type
 - NonLocalStat(T, StatScalingParams, Entity) depends on a stat on another entity, e.g. do damage according to the source's strength stat.
+- None (Used for tag-only effects)
   
 For an effect that depends on other stats, you could also pre-calculate a Fixed amount.  The difference with the last two magnitude variants is that they are dynamic.  For example, an entity is doing continuous damage to another entity over 10 seconds.  Halfway through it levels up and its damage stat increaes.  The same effect is now doing more damage for the remainder of the effect without any intervention on your part.  This does come at a cost though.  NonLocalStats are the reason I cannot do multithreading in the effect system because of the borrow rules with queries.  If the entity inside a NonLocalStat ceases to exist, the effect is removed.
 ### StatScalingParams
@@ -81,7 +88,7 @@ ActiveEffects\<T\> is a component that holds all the effects on an entity.  The 
 
 # Events
 ### Triggers
-AddEffect and RemoveEffect are used to manually add and remove effects.  When you use RemoveEffect, all effects matching the supplied effect type will be removed.
+AddEffect and RemoveEffect are used to manually add and remove effects.  When you use RemoveEffect, all effects matching the supplied tag will be removed.
 
 ### Feedback Events
 Entities can react to stat effect events by listening to the following
