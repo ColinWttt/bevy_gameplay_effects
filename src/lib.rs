@@ -13,8 +13,8 @@ mod enum_macro;
 pub mod prelude {
     pub use crate::{
         stats,
-        StatEffectsPlugin,
-        StatEffectsSystemSet,
+        GameplayEffectsPlugin,
+        GameplayEffectsSystemSet,
         gameplay_stats::{GameplayStat, GameplayStats, StatTrait},
         effects::{GameplayEffect, ActiveEffects},
         timing::EffectDuration,
@@ -24,15 +24,15 @@ pub mod prelude {
     };
 }
 
-pub struct StatEffectsPlugin<T: StatTrait>(StackingBehaviors, PhantomData<T>);
+pub struct GameplayEffectsPlugin<T: StatTrait>(StackingBehaviors, PhantomData<T>);
 
-impl<T: StatTrait> Default for StatEffectsPlugin<T> {
+impl<T: StatTrait> Default for GameplayEffectsPlugin<T> {
     fn default() -> Self {
         Self::new(StackingBehaviors::default())
     }
 }
 
-impl<T: StatTrait> StatEffectsPlugin<T> {
+impl<T: StatTrait> GameplayEffectsPlugin<T> {
     pub fn new(stacking: StackingBehaviors) -> Self {
         Self(stacking, PhantomData)
     }
@@ -54,9 +54,9 @@ impl StackingBehaviors {
 
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct StatEffectsSystemSet;
+pub struct GameplayEffectsSystemSet;
 
-impl<T: StatTrait> Plugin for StatEffectsPlugin<T> {
+impl<T: StatTrait> Plugin for GameplayEffectsPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_event::<OnEffectAdded>();
         app.add_event::<OnEffectRemoved>();
@@ -64,7 +64,7 @@ impl<T: StatTrait> Plugin for StatEffectsPlugin<T> {
         app.add_event::<OnBoundsBreached<T>>();
         app.add_observer(add_effect::<T>);
         app.add_observer(remove_effect::<T>);
-        app.add_systems(Update, process_active_effects::<T>.in_set(StatEffectsSystemSet));
+        app.add_systems(Update, process_active_effects::<T>.in_set(GameplayEffectsSystemSet));
         app.insert_resource(self.0.clone());
     }
 }
@@ -90,7 +90,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins.build().disable::<TimePlugin>());
         app.world_mut().insert_resource::<Time>(Time::default());
-        app.add_plugins(StatEffectsPlugin::<MyStats>::default());
+        app.add_plugins(GameplayEffectsPlugin::<MyStats>::default());
         app
     }
 
@@ -103,6 +103,7 @@ mod tests {
                     MyStats::HealthRegen => { 5.0 },
                     MyStats::HealthMax => { 100.0 },
                     MyStats::Strength => { 10.0 },
+                    MyStats::None => { 0. }
                 }
             },
             VARIANTS

@@ -58,7 +58,7 @@ fn main() {
         }),
         LogDiagnosticsPlugin::default(),
         FrameTimeDiagnosticsPlugin::default(),
-        StatEffectsPlugin::<CharacterStats>::new(stacking_behaviors),
+        GameplayEffectsPlugin::<CharacterStats>::new(stacking_behaviors),
     ));
 
     app.add_systems(Startup, spawn_entities);
