@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 bevy = { version = ">=0.16.1" }
 smallvec = { version = ">=1.15.1" }
+bevy_hierarchical_tags = { workspace = true }
