@@ -1,5 +1,6 @@
 use std::{any::TypeId, marker::PhantomData};
 use bevy::{platform::collections::HashMap, prelude::*};
+use bevy_hierarchical_tags::TagId;
 use crate::{effects::{add_effect, process_active_effects, remove_effect}, prelude::*};
 
 mod gameplay_stats;
@@ -15,10 +16,10 @@ pub mod prelude {
         StatEffectsPlugin,
         StatEffectsSystemSet,
         gameplay_stats::{GameplayStat, GameplayStats, StatTrait},
-        effects::{StatEffect, ActiveEffects},
+        effects::{GameplayEffect, ActiveEffects},
         timing::EffectDuration,
         calculation::{EffectCalculation, StackingPolicy, EffectMagnitude, StatScalingParams},
-        events::{EffectMetadata, EffectTypeMetadata, AddEffect, RemoveEffect, OnEffectAdded,
+        events::{AddEffectData, EffectMetadata, AddEffect, RemoveEffect, OnEffectAdded,
             OnEffectRemoved, OnBoundsBreached, OnRepeatingEffectTriggered, BoundsBreachedMetadata},
     };
 }
@@ -38,15 +39,15 @@ impl<T: StatTrait> StatEffectsPlugin<T> {
 }
 
 #[derive(Resource, Default, Clone)]
-pub struct StackingBehaviors(HashMap<TypeId, StackingPolicy>);
+pub struct StackingBehaviors(HashMap<TagId, StackingPolicy>);
 
 impl StackingBehaviors {
     pub fn new() -> Self {
-        Self(HashMap::<TypeId, StackingPolicy>::new())
+        Self(HashMap::<TagId, StackingPolicy>::new())
     }
 
-    pub fn stack<T: Send + Sync + 'static>(mut self, policy: StackingPolicy) -> Self {
-        self.0.insert(TypeId::of::<T>(), policy);
+    pub fn stack(mut self, tag: TagId, policy: StackingPolicy) -> Self {
+        self.0.insert(tag, policy);
         self
     }
 }
@@ -122,25 +123,27 @@ mod tests {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);
 
-        struct DeathEffect;
-        struct DamageEffect;
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<DeathEffect>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::Fixed(0.),
                 EffectCalculation::LowerBound,
                 EffectDuration::Persistent(None),
-            )
+            ),
+            None,
         )));
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<DamageEffect>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::Fixed(-200.),
                 EffectCalculation::Additive,
                 EffectDuration::Immediate,
-            )
+            ),
+            None,
         )));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
@@ -162,25 +165,27 @@ mod tests {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);
 
-        struct MaxHealthEffect;
-        struct HealthBuff;
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<MaxHealthEffect>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::Fixed(150.),
                 EffectCalculation::UpperBound,
                 EffectDuration::Persistent(None),
-            )
+            ),
+            None
         )));
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<HealthBuff>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::Fixed(200.),
                 EffectCalculation::Additive,
                 EffectDuration::Immediate,
-            )
+            ),
+            None
         )));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
@@ -202,54 +207,59 @@ mod tests {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);
 
-        struct MaxHealthEffect;
-        struct SetHealth;
-
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<MaxHealthEffect>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::LocalStat(MyStats::HealthMax, StatScalingParams::default()),
                 EffectCalculation::UpperBound,
                 EffectDuration::Persistent(None),
-            )
+            ),
+            None
         )));
 
         // Try to set past max health
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<SetHealth>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::Fixed(200.),
                 EffectCalculation::SetValue,
                 EffectDuration::Immediate,
-            )
+            ),
+            None
         )));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 100.);
 
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<SetHealth>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::Fixed(50.),
                 EffectCalculation::SetValue,
                 EffectDuration::Immediate,
-            )
+            ),
+            None
         )));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 50.);
 
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<SetHealth>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::LocalStat(MyStats::HealthMax, StatScalingParams::default()),
                 EffectCalculation::SetValue,
                 EffectDuration::Immediate,
-            )
+            ),
+            None,
         )));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
@@ -261,19 +271,21 @@ mod tests {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);
 
-        struct HealthRegen;
         let scaling = StatScalingParams {
             multiplier: 2.0,
             ..default()
         };
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        let regen_tag = TagId(1);
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<HealthRegen>(
+            GameplayEffect::new(
+                Some(regen_tag),
                 MyStats::Health,
                 EffectMagnitude::LocalStat(MyStats::HealthRegen, scaling),
                 EffectCalculation::Additive,
                 EffectDuration::Repeating(1.0.into(), Some(10.0.into())),
-            )
+            ),
+            None
         )));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
@@ -295,7 +307,7 @@ mod tests {
         let mut cursor = events.get_cursor();
         let event = cursor.read(&events).next().unwrap();
         assert_eq!(event.target_entity, entity);
-        assert_eq!(event.effect_type, TypeId::of::<HealthRegen>());
+        assert_eq!(event.tag, Some(regen_tag));
             
         app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(5));
         app.update();
@@ -313,20 +325,33 @@ mod tests {
         let (entity1, _) = setup_entity(&mut app);
         let (entity2, mut query) = setup_entity(&mut app);
 
-        struct Damage;
         let scaling = StatScalingParams {
             multiplier: -2.0,
             ..default()
         };
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity1, 
-            StatEffect::new::<Damage>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::NonlocalStat(MyStats::Strength, scaling, entity2),
                 EffectCalculation::Additive,
                 EffectDuration::Continuous(Some(10.0.into())),
-            )
+            ),
+            Some(entity2)
         )));
+
+        let events = app.world_mut().resource_mut::<Events<OnEffectAdded>>();
+        let mut cursor = events.get_cursor();
+        let mut events = cursor.read(&events);
+        assert_eq!(events.len(), 1);
+        let event = events.next().unwrap();
+        let EffectMetadata { target_entity, tag, source_entity } = event.0;
+        assert_eq!(source_entity, Some(entity2));
+        assert_eq!(target_entity, entity1);
+        assert_eq!(tag, None);
+
+
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 100.);
@@ -341,6 +366,7 @@ mod tests {
 
         app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(5));
         app.update();
+        
         for (entity, stats, _) in query.iter(app.world_mut()) {
             if entity != entity1 { continue; }
             let health = stats.get(MyStats::Health).current_value;
@@ -353,51 +379,53 @@ mod tests {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);
 
-        struct Damage;
-        struct HealthBuff1;
-        struct HealthBuff2;
-
-        let buff1 = StatEffect::new::<HealthBuff1>(
+        let tag1 = TagId(1);
+        let buff1 = GameplayEffect::new(
+            Some(tag1),
             MyStats::Health,
             EffectMagnitude::Fixed(2.),
             EffectCalculation::Multiplicative,
             EffectDuration::Persistent(None),
         );
-        let buff2 = StatEffect::new::<HealthBuff2>(
+        let tag2 = TagId(2);
+        let buff2 = GameplayEffect::new(
+            Some(tag2),
             MyStats::Health,
             EffectMagnitude::Fixed(2.),
             EffectCalculation::Multiplicative,
             EffectDuration::Persistent(None),
         );
 
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(entity, buff1.clone())));
+        app.world_mut().trigger(AddEffect(AddEffectData::new(entity, buff1.clone(), None)));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 200.);
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(entity, buff2.clone())));
+        app.world_mut().trigger(AddEffect(AddEffectData::new(entity, buff2.clone(), None)));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 400.);
 
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(
+        app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
-            StatEffect::new::<Damage>(
+            GameplayEffect::new(
+                None,
                 MyStats::Health,
                 EffectMagnitude::Fixed(-100.),
                 EffectCalculation::Additive,
                 EffectDuration::Immediate,
-            )
+            ),
+            None
         )));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 300.);
         
-        app.world_mut().trigger(RemoveEffect(EffectTypeMetadata::new(entity, buff1.effect_type)));
+        app.world_mut().trigger(RemoveEffect(EffectMetadata::new(entity, buff1.tag, None)));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 150.);
 
-        app.world_mut().trigger(RemoveEffect(EffectTypeMetadata::new(entity, buff2.effect_type)));
+        app.world_mut().trigger(RemoveEffect(EffectMetadata::new(entity, buff2.tag, None)));
         let (_, stats, _) = query.iter(app.world_mut()).next().unwrap();
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(health, 75.);
@@ -407,21 +435,22 @@ mod tests {
     fn test_no_stacking() {
         let mut app = setup_app();
 
-        struct HealthDrain;
-        let mut stacking_rules = HashMap::<TypeId, StackingPolicy>::new();
-        stacking_rules.insert(TypeId::of::<HealthDrain>(), StackingPolicy::NoStacking);
+        let tag = TagId(1);
+        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
+        stacking_rules.insert(tag, StackingPolicy::NoStacking);
         app.insert_resource(StackingBehaviors(stacking_rules));
 
         let (entity, mut query) = setup_entity(&mut app);
 
-        let effect = StatEffect::new::<HealthDrain>(
+        let effect = GameplayEffect::new(
+            Some(tag),
             MyStats::Health,
             EffectMagnitude::Fixed(-1.0),
             EffectCalculation::Additive,
             EffectDuration::Continuous(Some(3.0.into())),
         );
 
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(entity, effect.clone())));
+        app.world_mut().trigger(AddEffect(AddEffectData::new(entity, effect.clone(), None)));
         app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(1));
         app.update();
         
@@ -430,7 +459,7 @@ mod tests {
         assert_eq!(health, 99.);
         assert_eq!(effects.0.iter().len(), 1);
 
-        app.world_mut().trigger(AddEffect(EffectMetadata::new(entity, effect)));
+        app.world_mut().trigger(AddEffect(AddEffectData::new(entity, effect, None)));
         app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(1));
         app.update();
 
@@ -443,15 +472,15 @@ mod tests {
     #[test] 
     fn test_no_stacking_reset_timer() {
         let mut app = setup_app();
-
-        struct HealthDrain;
-        let mut stacking_rules = HashMap::<TypeId, StackingPolicy>::new();
-        stacking_rules.insert(TypeId::of::<HealthDrain>(), StackingPolicy::NoStackingResetDuration);
+        let tag = TagId(1);
+        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
+        stacking_rules.insert(tag, StackingPolicy::NoStackingResetDuration);
         app.insert_resource(StackingBehaviors(stacking_rules));
 
         let (entity, mut query) = setup_entity(&mut app);
 
-        let effect = StatEffect::new::<HealthDrain>(
+        let effect = GameplayEffect::new(
+            Some(tag),
             MyStats::Health,
             EffectMagnitude::Fixed(-1.0),
             EffectCalculation::Additive,
@@ -459,7 +488,7 @@ mod tests {
         );
 
         for i in 0..5 {
-            app.world_mut().trigger(AddEffect(EffectMetadata::new(entity, effect.clone())));
+            app.world_mut().trigger(AddEffect(AddEffectData::new(entity, effect.clone(), None)));
             app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(1));
             app.update();
 
@@ -475,14 +504,15 @@ mod tests {
     fn test_multiple_effects_stacking() {
         let mut app = setup_app();
 
-        struct HealthDrain;
-        let mut stacking_rules = HashMap::<TypeId, StackingPolicy>::new();
-        stacking_rules.insert(TypeId::of::<HealthDrain>(), StackingPolicy::MultipleEffects(3));
+        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
+        let tag = TagId(1);
+        stacking_rules.insert(tag, StackingPolicy::MultipleEffects(3));
         app.insert_resource(StackingBehaviors(stacking_rules));
 
         let (entity, mut query) = setup_entity(&mut app);
 
-        let effect = StatEffect::new::<HealthDrain>(
+        let effect = GameplayEffect::new(
+            Some(tag),
             MyStats::Health,
             EffectMagnitude::Fixed(-1.0),
             EffectCalculation::Additive,
@@ -491,7 +521,7 @@ mod tests {
 
         let mut target = 100.;
         for i in 0..4 {
-            app.world_mut().trigger(AddEffect(EffectMetadata::new(entity, effect.clone())));
+            app.world_mut().trigger(AddEffect(AddEffectData::new(entity, effect.clone(), None)));
             app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(1));
             app.update();
             let n_effects: usize = usize::min(i+1, 3);
@@ -522,14 +552,15 @@ mod tests {
     fn test_multiple_effects_reset_timers_stacking() {
         let mut app = setup_app();
 
-        struct HealthDrain;
-        let mut stacking_rules = HashMap::<TypeId, StackingPolicy>::new();
-        stacking_rules.insert(TypeId::of::<HealthDrain>(), StackingPolicy::MultipleEffectsResetDurations(3));
+        let tag = TagId(1);
+        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
+        stacking_rules.insert(tag, StackingPolicy::MultipleEffectsResetDurations(3));
         app.insert_resource(StackingBehaviors(stacking_rules));
 
         let (entity, mut query) = setup_entity(&mut app);
 
-        let effect = StatEffect::new::<HealthDrain>(
+        let effect = GameplayEffect::new(
+            Some(tag),
             MyStats::Health,
             EffectMagnitude::Fixed(-1.0),
             EffectCalculation::Additive,
@@ -538,7 +569,7 @@ mod tests {
 
         let mut target = 100.;
         for i in 0..8 {
-            app.world_mut().trigger(AddEffect(EffectMetadata::new(entity, effect.clone())));
+            app.world_mut().trigger(AddEffect(AddEffectData::new(entity, effect.clone(), None)));
             app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(1));
             app.update();
             let n_effects: usize = usize::min(i+1, 3);

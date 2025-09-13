@@ -67,7 +67,7 @@ fn main() {
 
 fn spawn_entities(mut commands: Commands) {
     let active_effects = ActiveEffects::new([
-        StatEffect::new::<DeathEffect>(
+        GameplayEffect::new::<DeathEffect>(
             CharacterStats::Health,
             EffectMagnitude::Fixed(0.),
             EffectCalculation::LowerBound,
@@ -98,7 +98,7 @@ fn do_some_effects(
     mut commands: Commands,
     entities: Query<Entity, With<ActiveEffects<CharacterStats>>>,
 ) {
-    let damage_effect = StatEffect::new::<DamageEffect>(
+    let damage_effect = GameplayEffect::new::<DamageEffect>(
         CharacterStats::Health,
         EffectMagnitude::LocalStat(CharacterStats::Strength, StatScalingParams{multiplier: -1.0, ..default()}),
         EffectCalculation::Additive,
@@ -107,7 +107,7 @@ fn do_some_effects(
 
     for entity in entities {
         // Take some damage
-        commands.trigger(AddEffect(EffectMetadata::new(
+        commands.trigger(AddEffect(AddEffectData::new(
             entity, damage_effect.clone()
         )));
     }
@@ -123,7 +123,7 @@ fn check_deaths(
     // of entities.
 
     // This will give 100 Health/s for 5 seconds
-    let healing_effect = StatEffect::new::<HealingEffect>(
+    let healing_effect = GameplayEffect::new::<HealingEffect>(
         CharacterStats::Health,
         EffectMagnitude::Fixed(100.0),
         EffectCalculation::Additive,
@@ -132,7 +132,7 @@ fn check_deaths(
     for event in events.read() {
         if event.0.stat == CharacterStats::Health && event.0.bound == EffectCalculation::LowerBound {
             // Oh no entity died, let's heal him!
-            commands.trigger(AddEffect(EffectMetadata::new(event.target_entity, healing_effect.clone())));
+            commands.trigger(AddEffect(AddEffectData::new(event.target_entity, healing_effect.clone())));
         }
     }
 }

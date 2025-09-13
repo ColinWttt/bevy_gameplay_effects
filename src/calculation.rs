@@ -13,6 +13,7 @@ pub enum StackingPolicy {
 
 #[derive(Clone, PartialEq)]
 pub enum EffectMagnitude<T: StatTrait> {
+    None,
     Fixed(f32),
     LocalStat(T, StatScalingParams),
     NonlocalStat(T, StatScalingParams, Entity),
@@ -20,6 +21,7 @@ pub enum EffectMagnitude<T: StatTrait> {
 
 #[derive(Clone, PartialEq)]
 pub enum EffectCalculation {
+    None,
     Additive,
     Multiplicative,
     SetValue,
@@ -70,7 +72,7 @@ impl StatScalingParams {
 /// Apply changes to a stat's current value
 pub(crate) fn apply_immediate<T: StatTrait> (
     entity: Entity,
-    effect: &StatEffect<T>, 
+    effect: &GameplayEffect<T>, 
     stats_query: &mut Query<&mut GameplayStats<T>>,
     amount: f32,
     effects:&ActiveEffects<T>,
@@ -152,10 +154,11 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
 
 /// Get the magnitude of the effect on the stat
 pub(crate) fn get_effect_amount<T:StatTrait>(
-    effect: &StatEffect<T>,
+    effect: &GameplayEffect<T>,
     source: Option<&GameplayStats<T>>,
 )  -> f32 {
     match &effect.magnitude {
+        EffectMagnitude::None => 0.,
         EffectMagnitude::Fixed(x) => *x,
         EffectMagnitude::LocalStat(stat, f) => {
             let stats = source.unwrap();
@@ -194,7 +197,7 @@ pub(crate) fn get_bounds<T: StatTrait>(
 }
 
 pub(crate) fn get_effect_source_stats<'a, T: StatTrait>(
-    effect: &StatEffect<T>,
+    effect: &GameplayEffect<T>,
     entity: Entity,
     stats_query: &'a mut Query<&mut GameplayStats<T>>,
 ) -> Option<&'a GameplayStats<T>> {

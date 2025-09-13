@@ -1,33 +1,29 @@
-use std::any::TypeId;
 use bevy::prelude::*;
+use bevy_hierarchical_tags::TagId;
 use crate::prelude::*;
 
 #[derive(Clone)]
-pub struct EffectMetadata<T: StatTrait> {
+pub struct AddEffectData<T: StatTrait> {
     pub target_entity: Entity,
-    pub effect: StatEffect<T>,
-}
-
-impl<T: StatTrait> EffectMetadata<T> {
-    pub fn new(entity: Entity, effect: StatEffect<T>) -> Self {
-        Self { effect, target_entity: entity }
-    }
-}
-
-pub struct EffectTypeMetadata {
-    pub target_entity: Entity,
+    pub effect: GameplayEffect<T>,
     pub source_entity: Option<Entity>,
-    pub effect_type: TypeId,
 }
 
-impl EffectTypeMetadata {
-    pub fn new(entity: Entity, effect_type: TypeId) -> Self {
-        Self { target_entity: entity, effect_type, source_entity: None }
+impl<T: StatTrait> AddEffectData<T> {
+    pub fn new(target_entity: Entity, effect: GameplayEffect<T>, source_entity: Option<Entity>) -> Self {
+        Self { effect, target_entity, source_entity }
     }
+}
 
-    pub fn with_source(mut self, source: Entity) -> Self {
-        self.source_entity = Some(source);
-        self
+pub struct EffectMetadata {
+    pub target_entity: Entity,
+    pub tag: Option<TagId>,
+    pub source_entity: Option<Entity>,
+}
+
+impl EffectMetadata {
+    pub fn new(target_entity: Entity, tag: Option<TagId>, source_entity: Option<Entity>) -> Self {
+        Self { source_entity, target_entity, tag }
     }
 }
 
@@ -44,19 +40,19 @@ impl<T: StatTrait> BoundsBreachedMetadata<T> {
 }
 
 #[derive(Event, Deref)]
-pub struct AddEffect<T: StatTrait>(pub EffectMetadata<T>);
+pub struct AddEffect<T: StatTrait>(pub AddEffectData<T>);
 
 #[derive(Event, Deref)]
-pub struct RemoveEffect(pub EffectTypeMetadata);
+pub struct RemoveEffect(pub EffectMetadata);
 
 #[derive(Event, Deref)]
-pub struct OnEffectAdded(pub EffectTypeMetadata);
+pub struct OnEffectAdded(pub EffectMetadata);
 
 #[derive(Event, Deref)]
-pub struct OnEffectRemoved(pub EffectTypeMetadata);
+pub struct OnEffectRemoved(pub EffectMetadata);
 
 #[derive(Event, Deref)]
-pub struct OnRepeatingEffectTriggered(pub EffectTypeMetadata);
+pub struct OnRepeatingEffectTriggered(pub EffectMetadata);
 
 #[derive(Event, Deref)]
 pub struct OnBoundsBreached<T: StatTrait>(pub BoundsBreachedMetadata<T>);

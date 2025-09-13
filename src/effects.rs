@@ -1,26 +1,27 @@
 use bevy::prelude::*;
-use std::any::TypeId;
+use bevy_hierarchical_tags::prelude::*;
 use smallvec::SmallVec;
 use crate::{
     prelude::*,
     calculation::{apply_immediate, get_effect_amount, get_effect_source_stats, recalculate_stats},
-    events::EffectTypeMetadata,
+    events::EffectMetadata,
     timing::SmallTimer, StackingBehaviors
 };
 
 const ACTIVE_EFFECTS_SIZE: usize = 24;
+const ACTIVE_TAGS_SIZE: usize = 32;
 
 
 #[derive(Clone)]
-pub struct StatEffect<T: StatTrait> {
+pub struct GameplayEffect<T: StatTrait> {
     pub stat_target: T,
     pub magnitude: EffectMagnitude<T>,
     pub calculation: EffectCalculation,
     pub duration: EffectDuration,
-    pub effect_type: TypeId,
+    pub tag: Option<TagId>,
 }
 
-impl<T: StatTrait> StatEffect<T> {
+impl<T: StatTrait> GameplayEffect<T> {
     pub fn set_duration(&mut self, duration: impl Into<SmallTimer>) -> Result<(), &'static str> {
         match &mut self.duration {
             EffectDuration::Continuous(Some(timer)) => { timer.set_duration(duration); },
@@ -32,18 +33,19 @@ impl<T: StatTrait> StatEffect<T> {
     }
 }
 
-impl<T: StatTrait> StatEffect<T> {
-    pub fn new<U: Send + Sync + 'static>(
+impl<T: StatTrait> GameplayEffect<T> {
+    pub fn new(
+        tag: Option<TagId>,
         stat_target: T,
         magnitude: EffectMagnitude<T>,
         calculation: EffectCalculation,
         duration: EffectDuration,
     ) -> Self {
-        Self { stat_target, magnitude, calculation, duration, effect_type: TypeId::of::<U>() }
+        Self { stat_target, magnitude, calculation, duration, tag }
     }
 }
 
-impl<T: StatTrait> StatEffect<T> {
+impl<T: StatTrait> GameplayEffect<T> {
     fn get_duration_timer(&self) -> Option<&SmallTimer> {
         match &self.duration {
             EffectDuration::Continuous(Some(timer)) => Some(timer),
@@ -54,18 +56,46 @@ impl<T: StatTrait> StatEffect<T> {
     }
 }
 
+#[derive(Component, Deref, DerefMut, Default)]
+pub struct ActiveTags(TagList<ACTIVE_TAGS_SIZE>);
+
+impl ActiveTags {
+    pub fn add(&mut self, tag: TagId) {
+        if !self.iter().any(|&t| t == tag) {
+            self.push(tag);
+        }
+    }
+
+    pub fn add_from(&mut self, tags: &[TagId]) {
+        for tag in tags.iter() {
+            self.add(*tag);
+        }
+    }
+
+    pub fn remove(&mut self, tag: TagId) {
+        self.retain(|t| *t != tag);
+    }
+
+    pub fn remove_from(&mut self, tags: &[TagId]) {
+        for tag in tags.iter() {
+            self.remove(*tag);
+        }
+    }
+}
+
 #[derive(Component, Clone, Deref, DerefMut)]
-pub struct ActiveEffects<T: StatTrait>(pub(crate) SmallVec<[StatEffect<T>; ACTIVE_EFFECTS_SIZE]>);
+#[require(ActiveTags)]
+pub struct ActiveEffects<T: StatTrait>(pub(crate) SmallVec<[GameplayEffect<T>; ACTIVE_EFFECTS_SIZE]>);
 
 impl<T: StatTrait> ActiveEffects<T> {
-    pub fn new(effects: impl IntoIterator<Item = StatEffect<T>>) -> Self {
-        let mut instance = Self(SmallVec::<[StatEffect<T>; ACTIVE_EFFECTS_SIZE]>::new());
+    pub fn new(effects: impl IntoIterator<Item = GameplayEffect<T>>) -> Self {
+        let mut instance = Self(SmallVec::<[GameplayEffect<T>; ACTIVE_EFFECTS_SIZE]>::new());
         instance.0.extend(effects);
         instance
     }
 
-    pub fn match_effect_type(&mut self, other: TypeId) -> impl Iterator<Item = &mut StatEffect<T>> {
-        self.0.iter_mut().filter(move |e| e.effect_type == other)
+    pub fn match_effect_type(&mut self, other: TagId) -> impl Iterator<Item = &mut GameplayEffect<T>> {
+        self.0.iter_mut().filter(move |e| e.tag == Some(other))
     }
 }
 
@@ -73,59 +103,65 @@ impl<T: StatTrait> ActiveEffects<T> {
 pub(crate) fn add_effect<T: StatTrait>(
     trigger: Trigger<AddEffect<T>>,
     mut stats_query: Query<&mut GameplayStats<T>>,
-    mut active_effects: Query<(Entity, &mut ActiveEffects<T>)>,
+    mut active_effects: Query<(Entity, &mut ActiveEffects<T>, &mut ActiveTags)>,
     mut added_writer: EventWriter<OnEffectAdded>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
     stacking_bahaviors: Res<StackingBehaviors>,
 ) {
     let event = trigger.event();
-    let EffectMetadata::<T> { effect, target_entity} = &event.0;
+    let AddEffectData::<T> { effect, target_entity, source_entity} = &event.0;
 
-    if let Ok((entity, mut effects)) = active_effects.get_mut(*target_entity) {
+    if let Ok((entity, mut effects, mut tags)) = active_effects.get_mut(*target_entity) {
         let source = get_effect_source_stats(effect, entity, &mut stats_query);
         let amount = get_effect_amount(effect, source);
             
         if !matches!(effect.duration, EffectDuration::Immediate) {
-            let stacking = stacking_bahaviors.0
-                .get(&effect.effect_type)
-                .cloned()
-                .unwrap_or_default();
+            if let Some(tag) = effect.tag {
+                tags.add(tag);
+                let stacking = stacking_bahaviors.0
+                    .get(&tag)
+                    .cloned()
+                    .unwrap_or_default();
 
-            match stacking {
-                StackingPolicy::NoStacking => {
-                    if effects.match_effect_type(effect.effect_type).count() == 0 {
-                        effects.0.push(effect.clone());
-                    } else { return; }
-                },
-                StackingPolicy::NoStackingResetDuration => {
-                    if effects.match_effect_type(effect.effect_type).count() == 0 {
-                        effects.0.push(effect.clone());
-                    } else {
+                match stacking {
+                    StackingPolicy::NoStacking => {
+                        if effects.match_effect_type(tag).count() == 0 {
+                            effects.0.push(effect.clone());
+                        } else { return; }
+                    },
+                    StackingPolicy::NoStackingResetDuration => {
+                        if effects.match_effect_type(tag).count() == 0 {
+                            effects.0.push(effect.clone());
+                        } else {
+                            if let Some(timer) = effect.get_duration_timer() {
+                                for other in effects.match_effect_type(tag) {
+                                    other.set_duration(timer.clone()).ok();
+                                }
+                            }
+                            return;
+                        }
+                    }
+                    StackingPolicy::MultipleEffects(max) => {
+                        if effects.match_effect_type(tag).count() < max as usize {
+                            effects.0.push(effect.clone());
+                        } else { return; }
+                    },
+                    StackingPolicy::MultipleEffectsResetDurations(max) => {
                         if let Some(timer) = effect.get_duration_timer() {
-                            for other in effects.match_effect_type(effect.effect_type) {
+                            for other in effects.match_effect_type(tag) {
                                 other.set_duration(timer.clone()).ok();
                             }
                         }
-                        return;
-                    }
+                        if effects.match_effect_type(tag).count() < max as usize {
+                            effects.0.push(effect.clone());
+                        } else { return; }
+                    },
                 }
-                StackingPolicy::MultipleEffects(max) => {
-                    if effects.match_effect_type(effect.effect_type).count() < max as usize {
-                        effects.0.push(effect.clone());
-                    } else { return; }
-                },
-                StackingPolicy::MultipleEffectsResetDurations(max) => {
-                    if let Some(timer) = effect.get_duration_timer() {
-                        for other in effects.match_effect_type(effect.effect_type) {
-                            other.set_duration(timer.clone()).ok();
-                        }
-                    }
-                    if effects.match_effect_type(effect.effect_type).count() < max as usize {
-                        effects.0.push(effect.clone());
-                    } else { return; }
-                },
+            } else {
+                effects.0.push(effect.clone());
             }
         }
+        // Check for bounds breach
         match &effect.duration {
             EffectDuration::Immediate => {
                 if let Some(e) = apply_immediate(entity, effect, &mut stats_query, amount, &effects) {
@@ -139,13 +175,7 @@ pub(crate) fn add_effect<T: StatTrait>(
             },
             _ => { }
         }
-
-        let mut metadata = EffectTypeMetadata::new(event.0.target_entity, effect.effect_type);
-        match effect.magnitude {
-            EffectMagnitude::NonlocalStat(_, _, other) => { metadata = metadata.with_source(other); }
-            _ => { }
-        }
-        added_writer.write(OnEffectAdded(metadata));
+        added_writer.write(OnEffectAdded(EffectMetadata::new(event.0.target_entity, effect.tag, *source_entity)));
     }
 }
 
@@ -153,38 +183,40 @@ pub(crate) fn remove_effect<T: StatTrait>(
     trigger: Trigger<RemoveEffect>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
     mut removed_writer: EventWriter<OnEffectRemoved>,
-    mut effects_entities_query: Query<&mut ActiveEffects<T>>,
+    mut effects_entities_query: Query<(&mut ActiveEffects<T>, &mut ActiveTags)>,
     mut stats_query: Query<&mut GameplayStats<T>>,
 ) {
-    let event = trigger.event();
-    let EffectTypeMetadata{ effect_type, target_entity: entity, .. } = &event.0;
-    let Ok(mut effects) = effects_entities_query.get_mut(*entity) else { return };
+    let EffectMetadata{ tag, target_entity, source_entity } = trigger.event().0;
+    let Ok((mut effects, mut tags)) = effects_entities_query.get_mut(target_entity) else { return };
+    if let Some(tag) = tag {
+        tags.remove(tag);
+    }
     let mut to_remove = SmallVec::<[usize; 8]>::new();
 
     for (index, current_effect) in effects.0.iter().enumerate() {
-        if *effect_type == current_effect.effect_type {
+        if tag == current_effect.tag {
             to_remove.push(index);
         }
     }
 
     for &i in to_remove.iter().rev() {
         let effect = effects.0.remove(i);
-        if let Some(e) = recalculate_stats(*entity, &effects, effect.stat_target, &mut stats_query) {
+        if let Some(e) = recalculate_stats(target_entity, &effects, effect.stat_target, &mut stats_query) {
             breached_writer.write(e);
         }
-        removed_writer.write(OnEffectRemoved(EffectTypeMetadata::new(event.target_entity, effect.effect_type)));
+        removed_writer.write(OnEffectRemoved(EffectMetadata::new(target_entity, effect.tag, source_entity)));
     }
 }
 
 pub(crate) fn process_active_effects<T: StatTrait>(
     time: Res<Time>,
     mut stats_query: Query<&mut GameplayStats<T>>,
-    mut entity_effects_query: Query<(Entity, &mut ActiveEffects<T>)>,
+    mut entity_effects_query: Query<(Entity, &mut ActiveEffects<T>, &mut ActiveTags)>,
     mut periodic_event_writer: EventWriter<OnRepeatingEffectTriggered>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
     mut removed_writer: EventWriter<OnEffectRemoved>,
 ) {
-    entity_effects_query.iter_mut().for_each(|(entity, mut effects)| {
+    entity_effects_query.iter_mut().for_each(|(entity, mut effects, mut tags)| {
 
         // Tick all the timers
         for effect in effects.0.iter_mut() {
@@ -227,8 +259,8 @@ pub(crate) fn process_active_effects<T: StatTrait>(
             let apply = match effect.duration {
                 EffectDuration::Repeating(period, _) => {
                     if period.just_triggered() {
-                        periodic_event_writer.write(OnRepeatingEffectTriggered(EffectTypeMetadata::new(
-                            entity, effect.effect_type
+                        periodic_event_writer.write(OnRepeatingEffectTriggered(EffectMetadata::new(
+                            entity, effect.tag, None
                         )));
                         true
                     } else { false }
@@ -245,7 +277,10 @@ pub(crate) fn process_active_effects<T: StatTrait>(
 
         for &i in removed.iter().rev() {
             let effect = effects.0.remove(i);
-            removed_writer.write(OnEffectRemoved(EffectTypeMetadata::new(entity, effect.effect_type)));
+            if let Some(tag) = effect.tag {
+                tags.remove(tag);
+            }
+            removed_writer.write(OnEffectRemoved(EffectMetadata::new(entity, effect.tag, None)));
         }
     });
 }
