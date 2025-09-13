@@ -4,7 +4,8 @@ macro_rules! stats {
         #[repr(u8)]
         #[derive(Copy, Clone, Eq, PartialEq, Debug)]
         pub enum $name {
-            $($variant),*
+            $($variant),*,
+            None = 255
         }
 
         impl From<$name> for u8 {
