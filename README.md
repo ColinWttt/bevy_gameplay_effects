@@ -15,7 +15,7 @@ Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttrib
 # Stat Representation
 Stats are represented as f32. GameplayStat is a struct that wraps a few f32, including the current and base values.  Base values are good for things like levelling up, but they are also necessary for deterministic behavior of revertible persistent effects.  If we didn't store some other state, then there could be hysteresis or path dependent effects by repeatedly applying and removing a mixture of additive and multiplicative buffs, which can lead to player exploits to order to achieve unreasonable stats, but you don't have to worry about any of this. 
 
-Stat types are represented as user-defined enums.  Use the stats! macro to define them (see examples).  This will impl some traits Into\<u8\>.
+Stat types are represented as user-defined enums.  Use the stats! macro to define them (see examples).  This will impl some traits, including Into\<u8\>.
 
 GameplayStats\<T\> is a component that holds a [GameplayStat; 16], where T is your stat enum type.  It is currently fixed size and not extendable, so it will always have the same size no matter how many stats you actually use.  The goal was to keep things as cache friendly as possible for iteration.  When you call GameplayStats::\<YourStatEnum\>::new you feed in an initializer function to set the initial stat values.  
 
