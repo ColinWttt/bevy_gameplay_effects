@@ -21,7 +21,7 @@ GameplayStats\<T\> is a component that holds a [GameplayStat; 16], where T is yo
 
 Due to a limitation in rust, the compiler cannot iterate over enum variants, so you must supply an iterator over your enum.  Internally enum variants are cast to u8 to access the underlying array as array indices.  Because of this, You should always set the variants in the correct order (0, 1, 2...), with none missing, except possibly truncation at the end.  
 
-The value u8::MAX is special.  Any effects using it will not try to modify any stats.  It is intended to be used with tag only effects which do not modify stats, e.g. a Stunned effect. It should not go in the variants array,  but you can still define it's variant in your enum, e.g. MyStats::None = 255.
+The value u8::MAX is special.  It is automatically defined by the stats! macro as a None variant.  Any effects using it will not try to modify any stats.  It is intended to be used with tag only effects which do not modify stats, e.g. a Stunned effect. It should not go in the variants array.
 
 The StatEffectsPlugin is generic over your stats enum, so you could have more than 1 if desired for some reason.  It also takes in a StackingBehavior resource.  See below.
 
