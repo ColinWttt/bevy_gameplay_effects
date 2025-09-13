@@ -1,4 +1,4 @@
-# Bevy Stat Effects
+# Bevy Gameplay Effects
 Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttributes from UE5's GameplayAbilitySystem.  Now requires my [bevy_hierarchical_tags](https://github.com/emberlightstudios/bevy_hierarchical_tags) crate.  This change has introduced a lot of breaking changes.  Sorry about that, but it was necessary to allow pure tag effects, which should be pretty common.
 
 ## Features
