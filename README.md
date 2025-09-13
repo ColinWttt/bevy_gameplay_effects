@@ -91,7 +91,7 @@ ActiveEffects\<T\> is a component that holds all the effects on an entity.  The 
 AddEffect and RemoveEffect are used to manually add and remove effects.  When you use RemoveEffect, all effects matching the supplied tag will be removed.
 
 ### Feedback Events
-Entities can react to stat effect events by listening to the following
+Systems can react to stat effect events by listening to the following
 
 - OnBoundsBreached\<T\>. This fires whenever a stat reached a limit defined by an upper/lower bound effect. Useful for death or overcharge effects.
 - OnRepeatingEffectTriggered
