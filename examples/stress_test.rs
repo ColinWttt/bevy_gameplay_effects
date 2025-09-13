@@ -5,7 +5,7 @@ use bevy_hierarchical_tags::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::time::common_conditions::on_timer;
 use bevy::window::PresentMode;
-use bevy_stat_effects::{prelude::*, stats, StackingBehaviors};
+use bevy_gameplay_effects::{prelude::*, stats, StackingBehaviors};
 
 // Unfortunately effect systems are single threaded due to borrow issues
 // but performance is still good.
@@ -87,6 +87,8 @@ fn spawn_entities(mut commands: Commands) {
                 CharacterStats::Health => 100.,
                 CharacterStats::HealthRegen => 1.,
                 CharacterStats::Strength => 5.,
+                // The stats! macro adds a None variant.  this number is meaningless, but we need a match arm
+                CharacterStats::None =>  0. 
             }
         }, VARIANTS
     );
