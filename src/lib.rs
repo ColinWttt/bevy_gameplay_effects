@@ -16,7 +16,7 @@ pub mod prelude {
         GameplayEffectsPlugin,
         GameplayEffectsSystemSet,
         gameplay_stats::{GameplayStat, GameplayStats, StatTrait},
-        effects::{GameplayEffect, ActiveEffects},
+        effects::{GameplayEffect, ActiveEffects, ActiveTags},
         timing::EffectDuration,
         calculation::{EffectCalculation, StackingPolicy, EffectMagnitude, StatScalingParams},
         events::{AddEffectData, EffectMetadata, AddEffect, RemoveEffect, OnEffectAdded,
@@ -109,9 +109,11 @@ mod tests {
             VARIANTS
         );
         let active_effects = ActiveEffects::<MyStats>::new(std::iter::empty());
+        let active_tags = ActiveTags::default();
         let entity = app.world_mut().spawn((
             stats_component,
             active_effects,
+            active_tags,
         )).id();
         let query = app.world_mut()
             .query::<(Entity, &GameplayStats<MyStats>, &ActiveEffects<MyStats>)>();
@@ -589,5 +591,26 @@ mod tests {
         let health = stats.get(MyStats::Health).current_value;
         assert_eq!(effects.0.iter().len(), 0);
         assert_eq!(health, target);
+    }
+
+
+    #[test] 
+    fn test_tag_effect() {
+        let mut app = setup_app();
+        let tag = TagId(1);
+        let (entity, _) = setup_entity(&mut app);
+        let mut query = app.world_mut()
+            .query::<(Entity, &GameplayStats<MyStats>, &ActiveEffects<MyStats>, &ActiveTags)>();
+        let effect = GameplayEffect::tag_effect(tag, MyStats::None, Some(5.0));
+        app.world_mut().trigger(AddEffect(AddEffectData::new(entity, effect.clone(), None)));
+        let (_, _, effects, tags) = query.iter(app.world_mut()).next().unwrap();
+        assert!(tags.contains(&tag));
+        assert_eq!(effects.iter().len(), 1);
+
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs(5));
+        app.update();
+        let (_, _, effects, tags) = query.iter(app.world_mut()).next().unwrap();
+        assert!(!tags.contains(&tag));
+        assert_eq!(effects.iter().len(), 0);
     }
 }
