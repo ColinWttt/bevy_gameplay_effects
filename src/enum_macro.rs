@@ -4,7 +4,7 @@ macro_rules! stats {
         #[repr(u8)]
         #[derive(Copy, Clone, Eq, PartialEq, Debug)]
         pub enum $name {
-            $($variant),*,
+            $($variant,)*
             None = 255
         }
 
@@ -23,7 +23,7 @@ macro_rules! stats {
             }
         }
 
-        impl StatTrait for $name {}
+        impl $crate::prelude::StatTrait for $name {}
 
         // Array holding all variants
         //pub const $name_VARIANTS: &[$name] = &[$($name::$variant),*];
