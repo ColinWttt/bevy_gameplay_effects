@@ -23,7 +23,13 @@ macro_rules! stats {
             }
         }
 
-        impl $crate::prelude::StatTrait for $name {}
+        impl $crate::prelude::StatTrait for $name {
+            const NONE: Self = $name::None;
+
+            fn variants() -> &'static [Self] {
+                &[$(Self::$variant),*]
+            }
+        }
 
         // Array holding all variants
         //pub const $name_VARIANTS: &[$name] = &[$($name::$variant),*];

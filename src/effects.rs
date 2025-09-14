@@ -44,11 +44,10 @@ impl<T: StatTrait> GameplayEffect<T> {
         Self { stat_target, magnitude, calculation, duration, tag }
     }
 
-    pub fn tag_effect(tag: TagId, stat: T, duration: Option<f32>) -> Self {
-        assert_eq!(stat.into(), 255, "Only the None variant can be used here");
+    pub fn tag_effect(tag: TagId, duration: Option<f32>) -> Self {
         let duration: Option<SmallTimer> = duration.map(|d| d.into());
         Self {
-            stat_target: stat,
+            stat_target: T::NONE,
             magnitude: EffectMagnitude::None,
             calculation: EffectCalculation::None,
             duration: EffectDuration::Persistent(duration),
@@ -114,7 +113,6 @@ impl<T: StatTrait> ActiveEffects<T> {
         self.0.iter_mut().filter(move |e| e.tag == Some(other))
     }
 }
-
 
 pub(crate) fn add_effect<T: StatTrait>(
     trigger: Trigger<AddEffect<T>>,

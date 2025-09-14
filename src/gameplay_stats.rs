@@ -16,19 +16,22 @@ impl GameplayStat {
     }
 }
 
-pub trait StatTrait: Copy + Eq + Into<u8> + Send + Sync + 'static {}
+pub trait StatTrait: Copy + Eq + Into<u8> + Send + Sync + 'static {
+    const NONE: Self;
+    fn variants() -> &'static [Self]; // all real variants, not including NONE
+}
 
 #[derive(Component, Clone)]
 pub struct GameplayStats<T: StatTrait>([GameplayStat; STAT_LIMIT], PhantomData<T>);
 
 impl<T: StatTrait> GameplayStats<T> {
-    pub fn new(init: impl Fn(T) -> f32, variants: impl IntoIterator<Item = T>) -> Self {
-        let variants: Vec<T> = variants.into_iter().collect();
+    pub fn new(init: impl Fn(T) -> f32) -> Self {
+        let variants = T::variants();
         assert!(variants.len() <= 16, "Max number of stat variants is 16");
 
         let mut instance = Self([GameplayStat::default(); STAT_LIMIT], PhantomData);
 
-        for &variant in &variants {
+        for &variant in variants {
             let initial: f32 = init(variant);
             let index = variant.into() as usize;
             instance.0[index] = GameplayStat::new(initial, initial);

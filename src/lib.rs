@@ -95,7 +95,6 @@ mod tests {
     }
 
     fn setup_entity<'a>(app: &mut App) -> (Entity, QueryState<(Entity, &'a GameplayStats<MyStats>, &'a ActiveEffects<MyStats>)>) {
-        const VARIANTS: [MyStats; 4] = [MyStats::Health, MyStats::HealthRegen, MyStats::HealthMax, MyStats::Strength];
         let stats_component = GameplayStats::<MyStats>::new(
             |stat| {
                 match stat {
@@ -106,7 +105,6 @@ mod tests {
                     MyStats::None => { 0. }
                 }
             },
-            VARIANTS
         );
         let active_effects = ActiveEffects::<MyStats>::new(std::iter::empty());
         let active_tags = ActiveTags::default();
@@ -625,7 +623,7 @@ mod tests {
         let (entity, _) = setup_entity(&mut app);
         let mut query = app.world_mut()
             .query::<(Entity, &GameplayStats<MyStats>, &ActiveEffects<MyStats>, &ActiveTags)>();
-        let effect = GameplayEffect::tag_effect(tag, MyStats::None, Some(5.0));
+        let effect = GameplayEffect::<MyStats>::tag_effect(tag, Some(5.0));
         app.world_mut().trigger(AddEffect(AddEffectData::new(entity, effect.clone(), None)));
         let (_, _, effects, tags) = query.iter(app.world_mut()).next().unwrap();
         assert!(tags.contains(&tag));
