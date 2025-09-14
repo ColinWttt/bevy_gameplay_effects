@@ -90,7 +90,7 @@ fn spawn_entities(mut commands: Commands) {
                 // The stats! macro adds a None variant.  this number is meaningless, but we need a match arm
                 CharacterStats::None =>  0. 
             }
-        }, VARIANTS
+        }
     );
 
     commands.spawn_batch((0..ENTITIES_TO_SPAWN).map(
