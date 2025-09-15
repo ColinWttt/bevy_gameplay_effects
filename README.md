@@ -70,9 +70,9 @@ impl StatScalingParams {
 I thought this approach would be cheaper than using some Box\<dyn T\> though it is more limited, but probably flexible enough.
 
 # Stacking
-The GameplayEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.  This is just a hashmap from effect TypeId to a StackingPolicy.
+The GameplayEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.  This is just a hashmap from effect TagId to a StackingPolicy.
 
-There are a few stacking policies supported.  Currently stacking is only linear, i.e. each effect will have the same magnitude.  You could get around this by defining different stats with the same underlying TypeId, but right now I don't have support for dynamic scaling of magnitudes based on the number of stacked effects.
+There are a few stacking policies supported.  Currently stacking is only linear, i.e. each effect will have the same magnitude.  You could get around this by defining different stats with the same underlying TagId, but right now I don't have support for dynamic scaling of magnitudes based on the number of stacked effects.
 
 - NoStacking
 - NoStackingResetTimer
