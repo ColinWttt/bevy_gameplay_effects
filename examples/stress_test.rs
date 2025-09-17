@@ -36,7 +36,7 @@ struct Tags {
 
 fn main() {
     let mut app = App::new();
-    let mut tag_registry: TagRegistry<16> = TagRegistry::new();
+    let mut tag_registry: TagRegistry = TagRegistry::new();
     let on_fire_tag = tag_registry.register("Effect.Status.Burning");
     let healing_tag = tag_registry.register("Effect.Status.Healing");
     app.insert_resource(tag_registry);
