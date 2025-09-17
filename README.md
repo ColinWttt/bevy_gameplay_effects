@@ -1,5 +1,5 @@
 # Bevy Gameplay Effects
-Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttributes from UE5's GameplayAbilitySystem.  Now requires my [bevy_hierarchical_tags](https://github.com/emberlightstudios/bevy_hierarchical_tags) crate.  This change has introduced a lot of breaking changes.  Sorry about that, but it was necessary to allow pure tag effects, which should be pretty common.
+Gameplay Stats and Effects for the Bevy game engine.  Inspired by GameplayAttributes from UE5's GameplayAbilitySystem.  Requires my [bevy_hierarchical_tags](https://github.com/emberlightstudios/bevy_hierarchical_tags) crate. 
 
 ## Features
 - GameplayStats component to track entity stats
@@ -50,7 +50,7 @@ Gameplay effects can have static or dynamic magnitudes
 - NonLocalStat(T, StatScalingParams, Entity) depends on a stat on another entity, e.g. do damage according to the source's strength stat.
 - None (Used for tag-only effects)
   
-For an effect that depends on other stats, you could also pre-calculate a Fixed amount.  The difference with the last two magnitude variants is that they are dynamic.  For example, an entity is doing continuous damage to another entity over 10 seconds.  Halfway through it levels up and its damage stat increaes.  The same effect is now doing more damage for the remainder of the effect without any intervention on your part.  This does come at a cost though.  NonLocalStats are the reason I cannot do multithreading in the effect system because of the borrow rules with queries.  If the entity inside a NonLocalStat ceases to exist, the effect is removed.
+For an effect that depends on other stats, you could also pre-calculate a Fixed amount.  The difference with the other two magnitude variants is that they are dynamic.  For example, an entity is doing continuous damage to another entity over 10 seconds.  Halfway through it levels up and its damage stat increaes.  The same effect is now doing more damage for the remainder of the effect without any intervention on your part.  This does come at a cost though.  NonLocalStats are the reason I cannot do multithreading in the effect system because of the borrow rules with queries.  If the entity inside a NonLocalStat ceases to exist, the effect is removed.
 ### StatScalingParams
 When doing stat based effect scaling, you can use StatScalingParams::default() to drive the effect magnitude as precisely the stat value. However you may want to scale your effect magnitude as some function of the underlying stat instead. StatScalingParams is a simple struct with an apply() method, which can transform the stat into a magnitude.  It is defined like this
 ```
@@ -70,9 +70,9 @@ impl StatScalingParams {
 I thought this approach would be cheaper than using some Box\<dyn T\> though it is more limited, but probably flexible enough.
 
 # Stacking
-The GameplayEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.  This is just a hashmap from effect TypeId to a StackingPolicy.
+The GameplayEffectsPlugin requires a StackingBehavior resource to initialize, although you can use ::default() if you don't want any stacking.  This is just a hashmap from effect TagId to a StackingPolicy.
 
-There are a few stacking policies supported.  Currently stacking is only linear, i.e. each effect will have the same magnitude.  You could get around this by defining different stats with the same underlying TypeId, but right now I don't have support for dynamic scaling of magnitudes based on the number of stacked effects.
+There are a few stacking policies supported.  Currently stacking is only linear, i.e. each effect will have the same magnitude.  You could get around this by defining different stats with the same underlying TagId, but right now I don't have support for dynamic scaling of magnitudes based on the number of stacked effects.
 
 - NoStacking
 - NoStackingResetTimer
