@@ -70,6 +70,7 @@ impl StatScalingParams {
 }
 
 /// Apply changes to a stat's current value
+#[inline]
 pub(crate) fn apply_immediate<T: StatTrait> (
     entity: Entity,
     effect: &GameplayEffect<T>, 
@@ -98,6 +99,7 @@ pub(crate) fn apply_immediate<T: StatTrait> (
 }
 
 /// After persistent effects are added/removed recalulate base and current stat values
+#[inline]
 pub(crate) fn recalculate_stats<T: StatTrait>(
     entity: Entity,
     effects: &Mut<ActiveEffects<T>>,
@@ -156,6 +158,7 @@ pub(crate) fn recalculate_stats<T: StatTrait>(
 }
 
 /// Get the magnitude of the effect on the stat
+#[inline]
 pub(crate) fn get_effect_amount<T:StatTrait>(
     effect: &GameplayEffect<T>,
     source: Option<&GameplayStats<T>>,
@@ -174,6 +177,7 @@ pub(crate) fn get_effect_amount<T:StatTrait>(
     }
 }
 
+#[inline]
 pub(crate) fn get_bounds<T: StatTrait>(
     entity: Entity,
     stat_target: T,
@@ -199,6 +203,7 @@ pub(crate) fn get_bounds<T: StatTrait>(
     (ub, lb)
 }
 
+#[inline]
 pub(crate) fn get_effect_source_stats<'a, T: StatTrait>(
     effect: &GameplayEffect<T>,
     entity: Entity,
