@@ -8,7 +8,7 @@ use bevy::window::PresentMode;
 use bevy_gameplay_effects::{prelude::*, stats, StackingBehaviors};
 
 // Unfortunately effect systems are single threaded due to borrow issues
-// but performance is still good.
+// but performance is still decent.
 
 const ENTITIES_TO_SPAWN: usize = 150_000;
 
