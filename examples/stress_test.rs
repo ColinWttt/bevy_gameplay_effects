@@ -87,8 +87,7 @@ fn spawn_entities(mut commands: Commands) {
                 CharacterStats::Health => 100.,
                 CharacterStats::HealthRegen => 1.,
                 CharacterStats::Strength => 5.,
-                // The stats! macro adds a None variant.  this number is meaningless, but we need a match arm
-                CharacterStats::None =>  0. 
+                CharacterStats::None =>  unreachable!() 
             }
         }
     );
