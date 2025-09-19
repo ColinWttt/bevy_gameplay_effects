@@ -40,11 +40,11 @@ impl<T: StatTrait> GameplayEffectsPlugin<T> {
 }
 
 #[derive(Resource, Clone)]
-pub struct StackingBehaviors(Vec<Option<StackingPolicy>>);
+pub struct StackingBehaviors([Option<StackingPolicy>; 1024]);
 
 impl StackingBehaviors {
     pub fn new() -> Self {
-        Self(vec![None; 1024])
+        Self([None; 1024])
     }
 
     pub fn stack(mut self, tag: TagId, policy: StackingPolicy) -> Self {
