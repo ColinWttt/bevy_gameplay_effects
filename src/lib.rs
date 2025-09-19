@@ -1,4 +1,4 @@
-use std::{any::TypeId, marker::PhantomData};
+use std::marker::PhantomData;
 use bevy::{platform::collections::HashMap, prelude::*};
 use bevy_hierarchical_tags::TagId;
 use crate::{effects::{add_effect, process_active_effects, remove_effect}, prelude::*};
@@ -29,7 +29,7 @@ pub struct GameplayEffectsPlugin<T: StatTrait>(StackingBehaviors, PhantomData<T>
 
 impl<T: StatTrait> Default for GameplayEffectsPlugin<T> {
     fn default() -> Self {
-        Self::new(StackingBehaviors::default())
+        Self::new(StackingBehaviors::new())
     }
 }
 
@@ -39,16 +39,16 @@ impl<T: StatTrait> GameplayEffectsPlugin<T> {
     }
 }
 
-#[derive(Resource, Default, Clone)]
-pub struct StackingBehaviors(HashMap<TagId, StackingPolicy>);
+#[derive(Resource, Clone)]
+pub struct StackingBehaviors(Vec<Option<StackingPolicy>>);
 
 impl StackingBehaviors {
     pub fn new() -> Self {
-        Self(HashMap::<TagId, StackingPolicy>::new())
+        Self(vec![None; 1024])
     }
 
     pub fn stack(mut self, tag: TagId, policy: StackingPolicy) -> Self {
-        self.0.insert(tag, policy);
+        self.0[*tag as usize] = Some(policy);
         self
     }
 }
@@ -277,7 +277,7 @@ mod tests {
             multiplier: 2.0,
             ..default()
         };
-        let regen_tag = TagId(1);
+        let regen_tag = TagId::from(1);
         app.world_mut().trigger(AddEffect(AddEffectData::new(
             entity, 
             GameplayEffect::new(
@@ -405,7 +405,7 @@ mod tests {
         let mut app = setup_app();
         let (entity, mut query) = setup_entity(&mut app);
 
-        let tag1 = TagId(1);
+        let tag1 = TagId::from(1);
         let buff1 = GameplayEffect::new(
             Some(tag1),
             MyStats::Health,
@@ -413,7 +413,7 @@ mod tests {
             EffectCalculation::Multiplicative,
             EffectDuration::Persistent(None),
         );
-        let tag2 = TagId(2);
+        let tag2 = TagId::from(2);
         let buff2 = GameplayEffect::new(
             Some(tag2),
             MyStats::Health,
@@ -461,10 +461,10 @@ mod tests {
     fn test_no_stacking() {
         let mut app = setup_app();
 
-        let tag = TagId(1);
-        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
-        stacking_rules.insert(tag, StackingPolicy::NoStacking);
-        app.insert_resource(StackingBehaviors(stacking_rules));
+        let tag = TagId::from(1);
+        app.insert_resource(StackingBehaviors::new()
+            .stack(tag, StackingPolicy::NoStacking)
+        );
 
         let (entity, mut query) = setup_entity(&mut app);
 
@@ -498,10 +498,10 @@ mod tests {
     #[test] 
     fn test_no_stacking_reset_timer() {
         let mut app = setup_app();
-        let tag = TagId(1);
-        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
-        stacking_rules.insert(tag, StackingPolicy::NoStackingResetDuration);
-        app.insert_resource(StackingBehaviors(stacking_rules));
+        let tag = TagId::from(1);
+        app.insert_resource(StackingBehaviors::new()
+            .stack(tag, StackingPolicy::NoStackingResetDuration)
+        );
 
         let (entity, mut query) = setup_entity(&mut app);
 
@@ -530,10 +530,10 @@ mod tests {
     fn test_multiple_effects_stacking() {
         let mut app = setup_app();
 
-        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
-        let tag = TagId(1);
-        stacking_rules.insert(tag, StackingPolicy::MultipleEffects(3));
-        app.insert_resource(StackingBehaviors(stacking_rules));
+        let tag = TagId::from(1);
+        app.insert_resource(StackingBehaviors::new()
+            .stack(tag, StackingPolicy::MultipleEffects(3))
+        );
 
         let (entity, mut query) = setup_entity(&mut app);
 
@@ -578,10 +578,10 @@ mod tests {
     fn test_multiple_effects_reset_timers_stacking() {
         let mut app = setup_app();
 
-        let tag = TagId(1);
-        let mut stacking_rules = HashMap::<TagId, StackingPolicy>::new();
-        stacking_rules.insert(tag, StackingPolicy::MultipleEffectsResetDurations(3));
-        app.insert_resource(StackingBehaviors(stacking_rules));
+        let tag = TagId::from(1);
+        app.insert_resource(StackingBehaviors::new()
+            .stack(tag, StackingPolicy::MultipleEffectsResetDurations(3))
+        );
 
         let (entity, mut query) = setup_entity(&mut app);
 
@@ -620,7 +620,7 @@ mod tests {
     #[test] 
     fn test_tag_effect() {
         let mut app = setup_app();
-        let tag = TagId(1);
+        let tag = TagId::from(1);
         let (entity, _) = setup_entity(&mut app);
         let mut query = app.world_mut()
             .query::<(Entity, &GameplayStats<MyStats>, &ActiveEffects<MyStats>, &ActiveTags)>();

@@ -120,7 +120,7 @@ pub(crate) fn add_effect<T: StatTrait>(
     mut active_effects: Query<(Entity, &mut ActiveEffects<T>, &mut ActiveTags)>,
     mut added_writer: EventWriter<OnEffectAdded>,
     mut breached_writer: EventWriter<OnBoundsBreached<T>>,
-    stacking_bahaviors: Res<StackingBehaviors>,
+    stacking_behaviors: Res<StackingBehaviors>,
 ) {
     let event = trigger.event();
     let AddEffectData::<T> { effect, target_entity, source_entity} = &event.0;
@@ -132,9 +132,7 @@ pub(crate) fn add_effect<T: StatTrait>(
         if !matches!(effect.duration, EffectDuration::Immediate) {
             if let Some(tag) = effect.tag {
                 tags.add(tag);
-                let stacking = stacking_bahaviors.0
-                    .get(&tag)
-                    .cloned()
+                let stacking = stacking_behaviors.0[*tag as usize]
                     .unwrap_or_default();
 
                 match stacking {
