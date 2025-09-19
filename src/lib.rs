@@ -15,6 +15,7 @@ pub mod prelude {
         stats,
         GameplayEffectsPlugin,
         GameplayEffectsSystemSet,
+        StackingBehaviors,
         gameplay_stats::{GameplayStat, GameplayStats, StatTrait},
         effects::{GameplayEffect, ActiveEffects, ActiveTags},
         timing::EffectDuration,

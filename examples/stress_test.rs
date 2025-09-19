@@ -5,7 +5,7 @@ use bevy_hierarchical_tags::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::time::common_conditions::on_timer;
 use bevy::window::PresentMode;
-use bevy_gameplay_effects::{prelude::*, stats, StackingBehaviors};
+use bevy_gameplay_effects::prelude::*;
 
 // Unfortunately effect systems are single threaded due to borrow issues
 // but performance is still decent.
