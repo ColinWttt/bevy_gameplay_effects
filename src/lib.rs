@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use bevy::{platform::collections::HashMap, prelude::*};
+use bevy::prelude::*;
 use bevy_hierarchical_tags::TagId;
 use crate::{effects::{add_effect, process_active_effects, remove_effect}, prelude::*};
 
