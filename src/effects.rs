@@ -118,8 +118,8 @@ pub(crate) fn add_effect<T: StatTrait>(
     trigger: On<AddEffect<T>>,
     mut stats_query: Query<&mut GameplayStats<T>>,
     mut active_effects: Query<(Entity, &mut ActiveEffects<T>, &mut ActiveTags)>,
-    mut added_writer: EventWriter<OnEffectAdded>,
-    mut breached_writer: EventWriter<OnBoundsBreached<T>>,
+    mut added_writer: MessageWriter<OnEffectAdded>,
+    mut breached_writer: MessageWriter<OnBoundsBreached<T>>,
     stacking_behaviors: Res<StackingBehaviors>,
 ) {
     let event = trigger.event();
@@ -193,8 +193,8 @@ pub(crate) fn add_effect<T: StatTrait>(
 
 pub(crate) fn remove_effect<T: StatTrait>(
     trigger: Trigger<RemoveEffect>,
-    mut breached_writer: EventWriter<OnBoundsBreached<T>>,
-    mut removed_writer: EventWriter<OnEffectRemoved>,
+    mut breached_writer: MessageWriter<OnBoundsBreached<T>>,
+    mut removed_writer: MessageWriter<OnEffectRemoved>,
     mut effects_entities_query: Query<(&mut ActiveEffects<T>, &mut ActiveTags)>,
     mut stats_query: Query<&mut GameplayStats<T>>,
 ) {
@@ -224,9 +224,9 @@ pub(crate) fn process_active_effects<T: StatTrait>(
     time: Res<Time>,
     mut stats_query: Query<&mut GameplayStats<T>>,
     mut entity_effects_query: Query<(Entity, &mut ActiveEffects<T>, &mut ActiveTags)>,
-    mut periodic_event_writer: EventWriter<OnRepeatingEffectTriggered>,
-    mut breached_writer: EventWriter<OnBoundsBreached<T>>,
-    mut removed_writer: EventWriter<OnEffectRemoved>,
+    mut periodic_event_writer: MessageWriter<OnRepeatingEffectTriggered>,
+    mut breached_writer: MessageWriter<OnBoundsBreached<T>>,
+    mut removed_writer: MessageWriter<OnEffectRemoved>,
 ) {
     entity_effects_query.iter_mut().for_each(|(entity, mut effects, mut tags)| {
 
