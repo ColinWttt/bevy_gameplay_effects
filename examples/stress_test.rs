@@ -50,7 +50,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "No VSync".to_string(),
-                resolution: (800., 600.).into(),
+                resolution: (800u32, 600u32).into(),
                 present_mode: PresentMode::Immediate, // <- disables VSync
                 ..default()
             }),

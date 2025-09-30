@@ -115,7 +115,7 @@ impl<T: StatTrait> ActiveEffects<T> {
 }
 
 pub(crate) fn add_effect<T: StatTrait>(
-    trigger: Trigger<AddEffect<T>>,
+    trigger: On<AddEffect<T>>,
     mut stats_query: Query<&mut GameplayStats<T>>,
     mut active_effects: Query<(Entity, &mut ActiveEffects<T>, &mut ActiveTags)>,
     mut added_writer: EventWriter<OnEffectAdded>,

@@ -54,3 +54,4 @@ impl<T: StatTrait> GameplayStats<T> {
         self.0[stat_variant.into() as usize] = stat;
     }
 }
+

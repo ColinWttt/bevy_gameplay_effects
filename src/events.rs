@@ -45,14 +45,14 @@ pub struct AddEffect<T: StatTrait>(pub AddEffectData<T>);
 #[derive(Event, Deref)]
 pub struct RemoveEffect(pub EffectMetadata);
 
-#[derive(Event, Deref)]
+#[derive(Message, Deref)]
 pub struct OnEffectAdded(pub EffectMetadata);
 
-#[derive(Event, Deref)]
+#[derive(Message, Deref)]
 pub struct OnEffectRemoved(pub EffectMetadata);
 
-#[derive(Event, Deref)]
+#[derive(Message, Deref)]
 pub struct OnRepeatingEffectTriggered(pub EffectMetadata);
 
-#[derive(Event, Deref)]
+#[derive(Message, Deref)]
 pub struct OnBoundsBreached<T: StatTrait>(pub BoundsBreachedMetadata<T>);

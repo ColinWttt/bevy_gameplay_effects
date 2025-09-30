@@ -59,10 +59,10 @@ pub struct GameplayEffectsSystemSet;
 
 impl<T: StatTrait> Plugin for GameplayEffectsPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_event::<OnEffectAdded>();
-        app.add_event::<OnEffectRemoved>();
-        app.add_event::<OnRepeatingEffectTriggered>();
-        app.add_event::<OnBoundsBreached<T>>();
+        app.add_message::<OnEffectAdded>();
+        app.add_message::<OnEffectRemoved>();
+        app.add_message::<OnRepeatingEffectTriggered>();
+        app.add_message::<OnBoundsBreached<T>>();
         app.add_observer(add_effect::<T>);
         app.add_observer(remove_effect::<T>);
         app.add_systems(Update, process_active_effects::<T>.in_set(GameplayEffectsSystemSet));
