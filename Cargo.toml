@@ -7,4 +7,4 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 bevy = { version = ">=0.16.1" }
 smallvec = { version = ">=1.15.1" }
-bevy_hierarchical_tags = { workspace = true }
+bevy_hierarchical_tags={version = "0.1" ,git="https://github.com/emberlightstudios/bevy_hierarchical_tags.git"}
